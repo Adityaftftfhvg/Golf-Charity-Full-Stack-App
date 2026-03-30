@@ -58,7 +58,7 @@ export default function PrizePool() {
       <div className="text-center">
         <p className="text-xs text-gray-400 uppercase tracking-widest">Total Pool</p>
         <p className="text-4xl font-bold text-green-400">
-          £{Number(pool.total_pool).toFixed(2)}
+          ₹{Number(pool.total_pool).toFixed(2)}
         </p>
       </div>
 
@@ -66,27 +66,29 @@ export default function PrizePool() {
         <div className="bg-white/5 rounded-lg p-3 text-center">
           <p className="text-xs text-gray-400">5-Match</p>
           <p className="text-lg font-bold text-yellow-400">
-            £{Number(pool.five_match_pool).toFixed(2)}
+            ₹{Number(pool.five_match_pool).toFixed(2)}
           </p>
           {pool.jackpot_carried > 0 && (
             <p className="text-xs text-orange-400">
-              +£{Number(pool.jackpot_carried).toFixed(2)} rollover
+              +₹{Number(pool.jackpot_carried).toFixed(2)} rollover
             </p>
           )}
         </div>
         <div className="bg-white/5 rounded-lg p-3 text-center">
           <p className="text-xs text-gray-400">4-Match</p>
           <p className="text-lg font-bold text-purple-400">
-            £{Number(pool.four_match_pool).toFixed(2)}
+            ₹{Number(pool.four_match_pool).toFixed(2)}
           </p>
         </div>
         <div className="bg-white/5 rounded-lg p-3 text-center">
           <p className="text-xs text-gray-400">3-Match</p>
           <p className="text-lg font-bold text-blue-400">
-            £{Number(pool.three_match_pool).toFixed(2)}
+            {Number(pool.three_match_pool).toFixed(2)}
           </p>
         </div>
       </div>
     </div>
   );
 }
+
+

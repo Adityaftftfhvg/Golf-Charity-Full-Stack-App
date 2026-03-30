@@ -77,16 +77,29 @@ export default function Dashboard() {
     setScores(data || []);
   };
 
-  const fetchProfile = async (uid: string) => {
-    const { data } = await supabase
-      .from("users")
-      .select(
-        "subscription_status, subscription_plan, subscription_end_date, charity_id, charity_percentage"
-      )
-      .eq("id", uid)
-      .single();
-    setProfile(data);
-  };
+ const fetchProfile = async (uid: string) => {
+  const { data } = await supabase
+    .from("users")
+    .select(
+      "subscription_status, subscription_plan, subscription_end_date, charity_id, charity_percentage"
+    )
+    .eq("id", uid)
+    .single();
+
+  // ✅ Auto-lapse expired subscriptions
+  if (data?.subscription_end_date && data.subscription_status === "active") {
+    const isExpired = new Date(data.subscription_end_date) < new Date();
+    if (isExpired) {
+      await supabase
+        .from("users")
+        .update({ subscription_status: "inactive" })
+        .eq("id", uid);
+      data.subscription_status = "inactive";
+    }
+  }
+
+  setProfile(data);
+};
 
   const fetchWinnings = async (uid: string) => {
     const { data } = await supabase
