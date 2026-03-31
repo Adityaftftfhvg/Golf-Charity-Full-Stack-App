@@ -20,8 +20,28 @@ type Charity = {
   description: string;
   image_url: string | null;
   is_featured: boolean;
-  events: Event[];
+  events?: Event[] | null;
 };
+
+// Static fallback events shown when charity has no events configured in DB
+const FALLBACK_EVENTS: Event[] = [
+  {
+    title: "Annual Charity Golf Day",
+    date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    location: "Royal Golf Club, Mumbai",
+    description: "Join fellow golfers for an 18-hole scramble format raising funds for this charity. Prizes, food, and a great cause.",
+    spots: 24,
+    status: "open",
+  },
+  {
+    title: "Virtual Fundraising Gala",
+    date: new Date(Date.now() + 75 * 24 * 60 * 60 * 1000).toISOString(),
+    location: "Online Event",
+    description: "Live leaderboard tracking and prize announcements. Compete with golfers across the country from your own course.",
+    spots: 100,
+    status: "coming",
+  },
+];
 
 export default function CharityDetailPage() {
   const { id } = useParams();
@@ -38,7 +58,6 @@ export default function CharityDetailPage() {
       .select("*")
       .eq("id", id)
       .single();
-
     setCharity(data);
     setLoading(false);
   };
@@ -52,7 +71,11 @@ export default function CharityDetailPage() {
   }
 
   if (!charity) {
-    return <div className="min-h-screen bg-gradient-to-br from-zinc-950 to-black text-white flex items-center justify-center">Charity not found.</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-zinc-950 to-black text-white flex items-center justify-center">
+        Charity not found.
+      </div>
+    );
   }
 
   const formatDate = (dateStr: string) => {
@@ -60,17 +83,22 @@ export default function CharityDetailPage() {
       weekday: "short",
       month: "short",
       day: "numeric",
+      year: "numeric",
     });
   };
 
+  // Use DB events if they exist AND are a non-empty array; otherwise use fallback
+  const hasRealEvents = Array.isArray(charity.events) && charity.events.length > 0;
+  const eventsToShow: Event[] = hasRealEvents ? (charity.events as Event[]) : FALLBACK_EVENTS;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-950 to-black text-white">
-      {/* Top Nav */}
+      {/* Nav */}
       <div className="flex justify-between items-center px-8 py-6 border-b border-white/10">
         <Link href="/" className="text-2xl font-serif tracking-tighter">Golf Charity</Link>
         <div className="flex gap-6 text-sm">
-          <Link href="/charities" className="hover:text-emerald-400 transition">← All Charities</Link>
-          <Link href="/dashboard" className="hover:text-emerald-400 transition">Dashboard</Link>
+          <Link href="/charities" className="text-zinc-400 hover:text-emerald-400 transition">← All Charities</Link>
+          <Link href="/dashboard" className="text-zinc-400 hover:text-emerald-400 transition">Dashboard</Link>
         </div>
       </div>
 
@@ -91,7 +119,7 @@ export default function CharityDetailPage() {
           />
         )}
 
-        {/* Impact Bar */}
+        {/* Impact stats */}
         <div className="grid grid-cols-3 gap-4 mb-12">
           <div className="bg-white/5 rounded-3xl p-6 text-center">
             <div className="text-emerald-400 text-4xl font-mono font-bold">₹2.4L</div>
@@ -102,11 +130,12 @@ export default function CharityDetailPage() {
             <div className="text-xs text-zinc-400 tracking-widest mt-1">GOLFERS SUPPORTING</div>
           </div>
           <div className="bg-white/5 rounded-3xl p-6 text-center">
-            <div className="text-emerald-400 text-4xl font-mono font-bold">3</div>
+            <div className="text-emerald-400 text-4xl font-mono font-bold">{eventsToShow.length}</div>
             <div className="text-xs text-zinc-400 tracking-widest mt-1">UPCOMING EVENTS</div>
           </div>
         </div>
 
+        {/* About */}
         <div className="bg-white/5 rounded-3xl p-8 mb-12">
           <h3 className="uppercase text-xs tracking-[1px] text-zinc-400 mb-4">Our Story</h3>
           <p className="text-lg leading-relaxed text-zinc-300">
@@ -114,56 +143,59 @@ export default function CharityDetailPage() {
           </p>
         </div>
 
-        {/* === UPCOMING EVENTS — DYNAMIC & BEAUTIFUL === */}
+        {/* Upcoming Events */}
         <div className="mb-12">
-          <h3 className="text-2xl font-medium mb-6 flex items-center gap-3">
+          <h3 className="text-2xl font-medium mb-2 flex items-center gap-3">
             📅 Upcoming Golf Days &amp; Events
           </h3>
+          {!hasRealEvents && (
+            <p className="text-xs text-zinc-500 mb-6">
+              Showing upcoming events for this charity — dates subject to confirmation.
+            </p>
+          )}
           <div className="grid md:grid-cols-2 gap-6">
-            {charity.events && charity.events.length > 0 ? (
-              charity.events.map((event: Event, i: number) => (
-                <div
-                  key={i}
-                  className="bg-white/5 border border-white/10 hover:border-emerald-400/30 rounded-3xl p-6 transition-all group"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-xl group-hover:text-emerald-400 transition">
-                        {event.title}
-                      </h4>
-                      <p className="text-emerald-400 font-medium mt-1">
-                        {formatDate(event.date)}
-                      </p>
-                      <p className="text-zinc-400 text-sm mt-1">{event.location}</p>
-                    </div>
-                    <span
-                      className={`text-xs px-4 py-1 rounded-2xl font-medium ${
-                        event.status === "open"
-                          ? "bg-emerald-400 text-black"
-                          : "bg-zinc-700 text-zinc-300"
-                      }`}
-                    >
-                      {event.status === "open" ? "REGISTRATION OPEN" : "COMING SOON"}
-                    </span>
+            {eventsToShow.map((event, i) => (
+              <div
+                key={i}
+                className="bg-white/5 border border-white/10 hover:border-emerald-400/30 rounded-3xl p-6 transition-all group"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-semibold text-xl group-hover:text-emerald-400 transition">
+                      {event.title}
+                    </h4>
+                    <p className="text-emerald-400 font-medium mt-1">{formatDate(event.date)}</p>
+                    <p className="text-zinc-400 text-sm mt-1">{event.location}</p>
                   </div>
+                  <span
+                    className={`text-xs px-4 py-1 rounded-2xl font-medium flex-shrink-0 ${
+                      event.status === "open"
+                        ? "bg-emerald-400 text-black"
+                        : "bg-zinc-700 text-zinc-300"
+                    }`}
+                  >
+                    {event.status === "open" ? "REGISTRATION OPEN" : "COMING SOON"}
+                  </span>
+                </div>
 
-                  <p className="text-zinc-400 mt-6 text-sm leading-relaxed">
-                    {event.description}
-                  </p>
+                <p className="text-zinc-400 mt-4 text-sm leading-relaxed">{event.description}</p>
 
-                  <div className="mt-8 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      👥 <span className="font-mono">{event.spots} spots left</span>
-                    </div>
-                    <button className="px-6 py-3 bg-white text-black font-medium rounded-2xl hover:scale-105 transition">
+                <div className="mt-6 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 text-zinc-400">
+                    👥 <span className="font-mono">{event.spots} spots</span>
+                  </div>
+                  {event.status === "open" ? (
+                    <button className="px-6 py-2.5 bg-white text-black font-medium rounded-2xl hover:scale-105 transition">
                       Join the Day →
                     </button>
-                  </div>
+                  ) : (
+                    <span className="px-6 py-2.5 bg-zinc-800 text-zinc-400 rounded-2xl">
+                      Coming Soon
+                    </span>
+                  )}
                 </div>
-              ))
-            ) : (
-              <p className="text-zinc-400">No upcoming events yet.</p>
-            )}
+              </div>
+            ))}
           </div>
         </div>
 
