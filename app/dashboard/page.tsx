@@ -151,6 +151,24 @@ export default function Dashboard() {
     if (data.url) window.location.href = data.url;
   };
 
+  // ✅ Cancellation Flow
+  const handleCancelSubscription = async () => {
+    const confirmCancel = window.confirm("Are you sure you want to cancel your subscription? You will lose access to upcoming draws.");
+    if (!confirmCancel) return;
+    
+    // Update the database to reflect the cancelled state
+    const { error } = await supabase
+      .from("users")
+      .update({ subscription_status: "inactive" })
+      .eq("id", userId);
+
+    if (!error) {
+      setProfile((prev) => prev ? { ...prev, subscription_status: "inactive" } : null);
+    } else {
+      alert("Failed to cancel subscription. Please try again.");
+    }
+  };
+
   const totalWon = winners.reduce((sum, w) => sum + (w.prize_amount || 0), 0);
   const isActive = profile?.subscription_status === "active";
 
@@ -222,14 +240,27 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
+            
+            {/* Active Subscription State + Cancellation Button */}
             {profile?.subscription_end_date && isActive && (
-              <p className="text-gray-400 text-sm mb-4">
-                Renews:{" "}
-                {new Date(profile.subscription_end_date).toLocaleDateString()}
-              </p>
+              <>
+                <p className="text-gray-400 text-sm mb-4">
+                  Renews:{" "}
+                  {new Date(profile.subscription_end_date).toLocaleDateString()}
+                </p>
+                <div className="pt-4 border-t border-slate-700 mt-4">
+                  <button
+                    onClick={handleCancelSubscription}
+                    className="text-sm text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    Cancel Subscription
+                  </button>
+                </div>
+              </>
             )}
+
             {!isActive && (
-              <div className="space-y-2">
+              <div className="space-y-2 mt-4">
                 <button
                   onClick={() => handleSubscribe("monthly")}
                   className="w-full bg-green-500 hover:bg-green-600 py-2 rounded-lg text-sm transition"

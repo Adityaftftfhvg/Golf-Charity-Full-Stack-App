@@ -85,9 +85,39 @@ export default function CharityDetailPage() {
           </p>
         </div>
 
-        
+        {/* PRD Requirement: Upcoming Events */}
+        <div className="bg-slate-800 rounded-2xl p-8 mb-6 border border-slate-700 hover:border-emerald-500/30 transition-colors">
+          <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-4 flex items-center gap-2">
+            📅 Upcoming Events
+          </h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-700 pb-4">
+              <div>
+                <h4 className="font-semibold text-white text-lg">Annual Charity Golf Day</h4>
+                <p className="text-sm text-gray-400 mt-1">Join us for an 18-hole scramble to support {charity.name}.</p>
+              </div>
+              <div className="text-right">
+                <span className="block text-emerald-400 font-medium">Next Month</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wider">Registration Open</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-semibold text-white text-lg">Virtual Fundraising Gala</h4>
+                <p className="text-sm text-gray-400 mt-1">Live leaderboard tracking and prize announcements.</p>
+              </div>
+              <div className="text-right">
+                <span className="block text-gray-300 font-medium">TBA</span>
+                <span className="text-xs text-gray-500 uppercase tracking-wider">Coming Soon</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Fixed Link Tag */}
+        <a
           href="/dashboard"
-          className="block text-center bg-green-500 hover:bg-green-600 py-4 rounded-xl font-medium transition"
+          className="block text-center bg-emerald-500 hover:bg-emerald-600 py-4 rounded-xl font-bold text-lg shadow-lg shadow-emerald-500/20 transition-all transform hover:-translate-y-0.5"
         >
           Support This Charity — Go to Dashboard
         </a>
