@@ -222,6 +222,12 @@ export default function HomePage() {
         </div>
         <div className="flex items-center gap-8">
           <a href="/charities" className="nav-link text-sm text-gray-400 hover:text-white transition-colors">Charities</a>
+           <a
+      href="/leaderboard"
+      className="text-sm text-emerald-400 hover:text-emerald-300 transition font-medium"
+    >
+      🏆 Leaderboard
+    </a>
           <a href={session ? "/dashboard" : "/auth"} className="cta-btn bg-green-500 hover:bg-green-400 px-5 py-2.5 rounded-xl text-sm font-semibold" style={{ color: "#080c14" }}>
             {session ? "Dashboard →" : "Get Started →"}
           </a>
