@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase";
 export default function ScoreInput({
   userId,
   onScoreAdded,
-  // Optional: pass an existing score to enter edit mode
   editScore,
   onEditDone,
 }: {
@@ -17,12 +16,8 @@ export default function ScoreInput({
 }) {
   const isEditMode = !!editScore;
 
-  const [score, setScore] = useState(
-    isEditMode ? String(editScore.score) : ""
-  );
-  const [date, setDate] = useState(
-    isEditMode ? editScore.played_at.slice(0, 10) : ""
-  );
+  const [score, setScore] = useState(isEditMode ? String(editScore.score) : "");
+  const [date, setDate] = useState(isEditMode ? editScore.played_at.slice(0, 10) : "");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
@@ -40,25 +35,14 @@ export default function ScoreInput({
     setLoading(true);
 
     if (isEditMode) {
-      // UPDATE existing score
-      await supabase
-        .from("scores")
-        .update({ score: num, played_at: date })
-        .eq("id", editScore.id);
-
+      await supabase.from("scores").update({ score: num, played_at: date }).eq("id", editScore.id);
       setLoading(false);
       onEditDone?.();
       return;
     }
 
-    // INSERT new score
-    await supabase.from("scores").insert({
-      user_id: userId,
-      score: num,
-      played_at: date,
-    });
+    await supabase.from("scores").insert({ user_id: userId, score: num, played_at: date });
 
-    // Delete oldest if more than 5
     const { data } = await supabase
       .from("scores")
       .select("id")
@@ -85,13 +69,13 @@ export default function ScoreInput({
         placeholder="Score (1–45)"
         value={score}
         onChange={(e) => setScore(e.target.value)}
-        className="p-3 rounded-lg text-black w-full"
+        className="p-3 rounded-lg w-full bg-slate-700 border border-slate-600 focus:border-green-500 focus:outline-none text-white transition"
       />
       <input
         type="date"
         value={date}
         onChange={(e) => setDate(e.target.value)}
-        className="p-3 rounded-lg text-black w-full"
+        className="p-3 rounded-lg w-full bg-slate-700 border border-slate-600 focus:border-green-500 focus:outline-none text-white transition"
       />
       <div className="flex gap-2">
         <button
@@ -99,13 +83,7 @@ export default function ScoreInput({
           disabled={loading}
           className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 py-3 rounded-lg transition"
         >
-          {loading
-            ? isEditMode
-              ? "Saving..."
-              : "Adding..."
-            : isEditMode
-            ? "Save Changes"
-            : "Add Score"}
+          {loading ? (isEditMode ? "Saving..." : "Adding...") : (isEditMode ? "Save Changes" : "Add Score")}
         </button>
         {isEditMode && onEditDone && (
           <button

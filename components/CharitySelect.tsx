@@ -22,10 +22,7 @@ export default function CharitySelect({ userId }: { userId: string }) {
   }, [userId]);
 
   const fetchCharities = async () => {
-    const { data } = await supabase
-      .from("charities")
-      .select("id, name, description")
-      .order("name");
+    const { data } = await supabase.from("charities").select("id, name, description").order("name");
     setCharities(data || []);
   };
 
@@ -41,49 +38,34 @@ export default function CharitySelect({ userId }: { userId: string }) {
 
   const saveCharity = async () => {
     setSaving(true);
-    await supabase
-      .from("users")
-      .update({ charity_id: selected, charity_percentage: percentage })
-      .eq("id", userId);
+    await supabase.from("users").update({ charity_id: selected, charity_percentage: percentage }).eq("id", userId);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
   if (charities.length === 0) {
-    return (
-      <p className="text-gray-500 text-sm">
-        No charities available yet. Ask an admin to add some!
-      </p>
-    );
+    return <p className="text-gray-500 text-sm">No charities available yet. Ask an admin to add some!</p>;
   }
 
   return (
     <div className="space-y-4">
 
-      {/* Charity selector */}
       <select
         value={selected}
         onChange={(e) => setSelected(e.target.value)}
-        className="w-full p-3 rounded-lg text-black"
+        className="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 focus:border-green-500 focus:outline-none text-white transition"
       >
         <option value="">Select a charity...</option>
         {charities.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
+          <option key={c.id} value={c.id}>{c.name}</option>
         ))}
       </select>
 
-      {/* Percentage slider */}
       <div className="space-y-2">
         <div className="flex justify-between items-center">
-          <label className="text-sm text-gray-400">
-            Donation percentage
-          </label>
-          <span className="text-green-400 font-bold text-lg">
-            {percentage}%
-          </span>
+          <label className="text-sm text-gray-400">Donation percentage</label>
+          <span className="text-green-400 font-bold text-lg">{percentage}%</span>
         </div>
 
         <input
@@ -101,7 +83,6 @@ export default function CharitySelect({ userId }: { userId: string }) {
           <span>100%</span>
         </div>
 
-        {/* Visual breakdown */}
         <div className="bg-slate-700 rounded-lg p-3 space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-gray-400">Goes to charity</span>
@@ -111,7 +92,6 @@ export default function CharitySelect({ userId }: { userId: string }) {
             <span className="text-gray-400">Goes to prize pool</span>
             <span className="text-purple-400 font-medium">{100 - percentage}%</span>
           </div>
-          {/* Progress bar */}
           <div className="w-full bg-slate-600 rounded-full h-2 mt-1">
             <div
               className="bg-green-500 h-2 rounded-full transition-all duration-200"

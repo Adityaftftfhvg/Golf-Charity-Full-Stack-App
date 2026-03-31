@@ -36,6 +36,7 @@ type Draw = {
   month: string;
   year: number;
   status: string;
+  draw_date?: string;
 };
 
 export default function Dashboard() {
@@ -46,15 +47,12 @@ export default function Dashboard() {
   const [draws, setDraws] = useState<Draw[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Score edit state
   const [editingScore, setEditingScore] = useState<Score | null>(null);
-
-  // ✅ Payment return status banner
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
-    // Cancellation modal states
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
+
   useEffect(() => {
     init();
     checkPaymentReturn();
@@ -64,7 +62,6 @@ export default function Dashboard() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("payment") === "success") {
       setPaymentStatus("success");
-      // Clean URL without reload
       window.history.replaceState({}, "", "/dashboard");
     } else if (params.get("payment") === "failed") {
       setPaymentStatus("failed");
@@ -73,9 +70,7 @@ export default function Dashboard() {
   };
 
   const init = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       window.location.href = "/auth";
       return;
@@ -103,20 +98,14 @@ export default function Dashboard() {
   const fetchProfile = async (uid: string) => {
     const { data } = await supabase
       .from("users")
-      .select(
-        "subscription_status, subscription_plan, subscription_end_date, charity_id, charity_percentage"
-      )
+      .select("subscription_status, subscription_plan, subscription_end_date, charity_id, charity_percentage")
       .eq("id", uid)
       .single();
 
-    // Auto-lapse expired subscriptions
     if (data?.subscription_end_date && data.subscription_status === "active") {
       const isExpired = new Date(data.subscription_end_date) < new Date();
       if (isExpired) {
-        await supabase
-          .from("users")
-          .update({ subscription_status: "inactive" })
-          .eq("id", uid);
+        await supabase.from("users").update({ subscription_status: "inactive" }).eq("id", uid);
         data.subscription_status = "inactive";
       }
     }
@@ -136,8 +125,8 @@ export default function Dashboard() {
   const fetchDraws = async () => {
     const { data } = await supabase
       .from("draws")
-      .select("id, month, year, status")
-      .eq("status", "published")
+      .select("id, month, year, status, draw_date")
+      .in("status", ["published", "upcoming", "scheduled"])
       .order("created_at", { ascending: false })
       .limit(5);
     setDraws(data || []);
@@ -154,17 +143,13 @@ export default function Dashboard() {
     if (data.url) window.location.href = data.url;
   };
 
-  // ==================== CANCELLATION FLOW (with beautiful modal) ====================
   const handleCancelSubscription = async () => {
     if (!userId || !cancelReason) return;
     setCancelLoading(true);
 
     const { error } = await supabase
       .from("users")
-      .update({
-        subscription_status: "inactive",
-        subscription_end_date: null,
-      })
+      .update({ subscription_status: "inactive", subscription_end_date: null })
       .eq("id", userId);
 
     if (!error) {
@@ -182,8 +167,6 @@ export default function Dashboard() {
 
   const totalWon = winners.reduce((sum, w) => sum + (w.prize_amount || 0), 0);
   const isActive = profile?.subscription_status === "active";
-
-  // ✅ Build a Set of draw IDs the user won in, for participation summary
   const wonDrawIds = new Set(winners.map((w) => w.draw_id));
 
   if (loading) {
@@ -198,39 +181,25 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-700 text-white">
 
       {/* NAVBAR */}
- {/* NAVBAR */}
-<div className="flex justify-between items-center px-8 py-5 border-b border-slate-700">
-  <h1 className="text-xl font-bold">Golf Charity</h1>
-
-  <div className="flex items-center gap-6">
-    
-    {/* 🏆 Leaderboard Button */}
-    <a
-      href="/leaderboard"
-      className="text-sm text-emerald-400 hover:text-emerald-300 transition font-medium"
-    >
-      🏆 Leaderboard
-    </a>
-
-    {/* Sign Out */}
-    <button
-      onClick={async () => {
-        await supabase.auth.signOut();
-        window.location.href = "/auth";
-      }}
-      className="text-sm text-gray-400 hover:text-white transition"
-    >
-      Sign out
-    </button>
-
-  </div>
-</div>
+      <div className="flex justify-between items-center px-8 py-5 border-b border-slate-700">
+        <h1 className="text-xl font-bold">Golf Charity</h1>
+        <div className="flex items-center gap-6">
+          <a href="/leaderboard" className="text-sm text-emerald-400 hover:text-emerald-300 transition font-medium">
+            🏆 Leaderboard
+          </a>
+          <button
+            onClick={async () => { await supabase.auth.signOut(); window.location.href = "/auth"; }}
+            className="text-sm text-gray-400 hover:text-white transition"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
 
       <div className="max-w-6xl mx-auto px-6 py-10 space-y-8">
 
         <h2 className="text-3xl font-bold">Your Dashboard</h2>
 
-        {/* ✅ Payment return banner */}
         {paymentStatus === "success" && (
           <div className="bg-green-500/20 border border-green-500/40 text-green-400 rounded-xl px-5 py-4 text-sm font-medium">
             ✓ Payment successful! Your subscription is now active.
@@ -245,38 +214,25 @@ export default function Dashboard() {
         {/* ROW 1: Subscription + Winnings */}
         <div className="grid md:grid-cols-2 gap-6">
 
-          {/* Subscription status */}
           <div className="bg-slate-800 p-6 rounded-xl">
-            <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-3">
-              Subscription
-            </h3>
+            <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-3">Subscription</h3>
             <div className="flex items-center gap-3 mb-4">
-              <span
-                className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  isActive
-                    ? "bg-green-500/20 text-green-400"
-                    : "bg-red-500/20 text-red-400"
-                }`}
-              >
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${isActive ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
                 {isActive ? "Active" : "Inactive"}
               </span>
               {profile?.subscription_plan && (
-                <span className="text-gray-400 text-sm capitalize">
-                  {profile.subscription_plan} plan
-                </span>
+                <span className="text-gray-400 text-sm capitalize">{profile.subscription_plan} plan</span>
               )}
             </div>
-            
-            {/* Active Subscription State + Cancellation Button */}
+
             {profile?.subscription_end_date && isActive && (
               <>
                 <p className="text-gray-400 text-sm mb-4">
-                  Renews:{" "}
-                  {new Date(profile.subscription_end_date).toLocaleDateString()}
+                  Renews: {new Date(profile.subscription_end_date).toLocaleDateString()}
                 </p>
-                               <button
+                <button
                   onClick={() => setShowCancelModal(true)}
-                  className="text-sm text-red-400 hover:text-red-300 transition-colors flex items-center gap-1"
+                  className="text-sm text-red-400 hover:text-red-300 transition-colors"
                 >
                   Cancel Subscription →
                 </button>
@@ -285,61 +241,31 @@ export default function Dashboard() {
 
             {!isActive && (
               <div className="space-y-2 mt-4">
-                <button
-                  onClick={() => handleSubscribe("monthly")}
-                  className="w-full bg-green-500 hover:bg-green-600 py-2 rounded-lg text-sm transition"
-                >
+                <button onClick={() => handleSubscribe("monthly")} className="w-full bg-green-500 hover:bg-green-600 py-2 rounded-lg text-sm transition">
                   Subscribe Monthly — ₹99
                 </button>
-                <button
-                  onClick={() => handleSubscribe("yearly")}
-                  className="w-full bg-purple-600 hover:bg-purple-700 py-2 rounded-lg text-sm transition"
-                >
+                <button onClick={() => handleSubscribe("yearly")} className="w-full bg-purple-600 hover:bg-purple-700 py-2 rounded-lg text-sm transition">
                   Subscribe Yearly — ₹799 (Save 20%)
                 </button>
               </div>
             )}
           </div>
 
-          {/* Winnings overview */}
           <div className="bg-slate-800 p-6 rounded-xl">
-            <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-3">
-              Winnings
-            </h3>
-            <p className="text-3xl font-bold text-green-400 mb-1">
-              ₹{totalWon.toFixed(2)}
-            </p>
-            <p className="text-gray-400 text-sm mb-4">
-              Total won across all draws
-            </p>
+            <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-3">Winnings</h3>
+            <p className="text-3xl font-bold text-green-400 mb-1">₹{totalWon.toFixed(2)}</p>
+            <p className="text-gray-400 text-sm mb-4">Total won across all draws</p>
             {winners.length === 0 ? (
-              <p className="text-gray-500 text-sm">
-                No winnings yet — keep playing!
-              </p>
+              <p className="text-gray-500 text-sm">No winnings yet — keep playing!</p>
             ) : (
               <div className="space-y-2">
                 {winners.slice(0, 3).map((w) => (
-                  <div
-                    key={w.id}
-                    className="flex justify-between items-center text-sm"
-                  >
-                    <span className="text-gray-300">
-                      {w.match_type}-number match
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs ${
-                        w.status === "paid"
-                          ? "bg-green-500/20 text-green-400"
-                          : w.status === "approved"
-                          ? "bg-blue-500/20 text-blue-400"
-                          : "bg-yellow-500/20 text-yellow-400"
-                      }`}
-                    >
+                  <div key={w.id} className="flex justify-between items-center text-sm">
+                    <span className="text-gray-300">{w.match_type}-number match</span>
+                    <span className={`px-2 py-0.5 rounded text-xs ${w.status === "paid" ? "bg-green-500/20 text-green-400" : w.status === "approved" ? "bg-blue-500/20 text-blue-400" : "bg-yellow-500/20 text-yellow-400"}`}>
                       {w.status}
                     </span>
-                    <span className="text-white font-medium">
-                      ₹{(w.prize_amount || 0).toFixed(2)}
-                    </span>
+                    <span className="text-white font-medium">₹{(w.prize_amount || 0).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
@@ -354,65 +280,55 @@ export default function Dashboard() {
         {/* ROW 2: Score entry + Scores display */}
         <div className="grid md:grid-cols-2 gap-6">
 
-          {/* Add / Edit score */}
+          {/* Add / Edit score — gated for subscribers */}
           <div className="bg-slate-800 p-6 rounded-xl">
             <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-4">
               {editingScore ? "Edit Score" : "Add Score"}
             </h3>
-            {userId && (
+            {!isActive ? (
+              <div className="text-center py-6">
+                <div className="w-12 h-12 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span className="text-2xl">🔒</span>
+                </div>
+                <p className="text-gray-400 text-sm mb-4">Score entry is available to active subscribers only.</p>
+                <button
+                  onClick={() => handleSubscribe("monthly")}
+                  className="bg-green-500 hover:bg-green-600 px-5 py-2 rounded-lg text-sm font-medium transition"
+                >
+                  Subscribe to unlock
+                </button>
+              </div>
+            ) : userId && (
               <ScoreInput
                 userId={userId}
                 onScoreAdded={() => fetchScores(userId)}
-                // ✅ Pass edit props when a score is selected for editing
                 editScore={editingScore ?? undefined}
-                onEditDone={() => {
-                  setEditingScore(null);
-                  fetchScores(userId);
-                }}
+                onEditDone={() => { setEditingScore(null); fetchScores(userId); }}
               />
             )}
           </div>
 
-          {/* Scores list with edit buttons */}
+          {/* Scores list */}
           <div className="bg-slate-800 p-6 rounded-xl">
-            <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-4">
-              Your Last 5 Scores
-            </h3>
+            <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-4">Your Last 5 Scores</h3>
             {scores.length === 0 ? (
-              <p className="text-gray-500 text-sm">
-                No scores yet — add your first score!
-              </p>
+              <p className="text-gray-500 text-sm">No scores yet — add your first score!</p>
             ) : (
               <div className="space-y-2">
                 {scores.map((s, i) => (
                   <div
                     key={s.id}
-                    className={`flex justify-between items-center px-4 py-3 rounded-lg transition ${
-                      editingScore?.id === s.id
-                        ? "bg-purple-500/20 border border-purple-500/40"
-                        : "bg-slate-700"
-                    }`}
+                    className={`flex justify-between items-center px-4 py-3 rounded-lg transition ${editingScore?.id === s.id ? "bg-purple-500/20 border border-purple-500/40" : "bg-slate-700"}`}
                   >
                     <div className="flex items-center gap-3">
-                      {i === 0 && (
-                        <span className="text-xs bg-purple-500/30 text-purple-300 px-2 py-0.5 rounded">
-                          Latest
-                        </span>
-                      )}
-                      <span className="text-2xl font-bold text-purple-400">
-                        {s.score}
-                      </span>
+                      {i === 0 && <span className="text-xs bg-purple-500/30 text-purple-300 px-2 py-0.5 rounded">Latest</span>}
+                      <span className="text-2xl font-bold text-purple-400">{s.score}</span>
                     </div>
                     <span className="text-gray-400 text-sm">
-                      {s.played_at
-                        ? new Date(s.played_at).toLocaleDateString()
-                        : "No date"}
+                      {s.played_at ? new Date(s.played_at).toLocaleDateString() : "No date"}
                     </span>
-                    {/* ✅ Edit button per score */}
                     <button
-                      onClick={() =>
-                        setEditingScore(editingScore?.id === s.id ? null : s)
-                      }
+                      onClick={() => setEditingScore(editingScore?.id === s.id ? null : s)}
                       className="text-xs text-purple-400 hover:text-purple-300 transition ml-2"
                     >
                       {editingScore?.id === s.id ? "Cancel" : "Edit"}
@@ -428,58 +344,63 @@ export default function Dashboard() {
         {/* ROW 3: Charity + Draw participation */}
         <div className="grid md:grid-cols-2 gap-6">
 
-          {/* Charity */}
+          {/* Charity — gated for subscribers */}
           <div className="bg-slate-800 p-6 rounded-xl">
-            <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-2">
-              Your Charity
-            </h3>
-            <p className="text-gray-400 text-sm mb-4">
-              Contributing{" "}
-              <span className="text-green-400 font-medium">
-                {profile?.charity_percentage || 10}%
-              </span>{" "}
-              of your subscription
-            </p>
-            {userId && <CharitySelect userId={userId} />}
+            <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-2">Your Charity</h3>
+            {!isActive ? (
+              <div className="text-center py-6">
+                <div className="w-12 h-12 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span className="text-2xl">🔒</span>
+                </div>
+                <p className="text-gray-400 text-sm mb-4">Charity selection is available to active subscribers only.</p>
+                <button
+                  onClick={() => handleSubscribe("monthly")}
+                  className="bg-green-500 hover:bg-green-600 px-5 py-2 rounded-lg text-sm font-medium transition"
+                >
+                  Subscribe to unlock
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="text-gray-400 text-sm mb-4">
+                  Contributing <span className="text-green-400 font-medium">{profile?.charity_percentage || 10}%</span> of your subscription
+                </p>
+                {userId && <CharitySelect userId={userId} />}
+              </>
+            )}
           </div>
 
-          {/* ✅ Draw participation summary — now shows whether the user was entered */}
+          {/* Draw participation */}
           <div className="bg-slate-800 p-6 rounded-xl">
-            <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-1">
-              Draw Participation
-            </h3>
+            <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-1">Draw Participation</h3>
             <p className="text-xs text-gray-500 mb-4">
-              {draws.length > 0
-                ? `Showing last ${draws.length} published draw${draws.length > 1 ? "s" : ""}`
-                : ""}
+              {draws.length > 0 ? `Showing last ${draws.length} draw${draws.length > 1 ? "s" : ""}` : ""}
             </p>
             {draws.length === 0 ? (
-              <p className="text-gray-500 text-sm">No draws published yet.</p>
+              <p className="text-gray-500 text-sm">No draws yet.</p>
             ) : (
               <div className="space-y-2">
                 {draws.map((d) => {
                   const won = wonDrawIds.has(d.id);
+                  const isUpcoming = d.status === "upcoming" || d.status === "scheduled";
                   return (
-                    <div
-                      key={d.id}
-                      className="flex justify-between items-center bg-slate-700 px-4 py-3 rounded-lg"
-                    >
-                      <span className="text-gray-300">
-                        {d.month} {d.year}
-                      </span>
+                    <div key={d.id} className="flex justify-between items-center bg-slate-700 px-4 py-3 rounded-lg">
+                      <div>
+                        <span className="text-gray-300">{d.month} {d.year}</span>
+                        {isUpcoming && d.draw_date && (
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Draw: {new Date(d.draw_date).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2">
-                        {/* Entered badge — active subscribers at draw time are always entered */}
-                        {isActive && (
-                          <span className="text-xs bg-slate-600 text-gray-400 px-2 py-0.5 rounded">
-                            Entered
-                          </span>
+                        {isUpcoming ? (
+                          <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded font-medium">Upcoming</span>
+                        ) : (
+                          isActive && <span className="text-xs bg-slate-600 text-gray-400 px-2 py-0.5 rounded">Entered</span>
                         )}
-                        {won && (
-                          <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-medium">
-                            Winner 🏆
-                          </span>
-                        )}
-                        <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded capitalize">
+                        {won && <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-medium">Winner 🏆</span>}
+                        <span className={`text-xs px-2 py-0.5 rounded capitalize ${isUpcoming ? "bg-blue-500/20 text-blue-400" : "bg-green-500/20 text-green-400"}`}>
                           {d.status}
                         </span>
                       </div>
@@ -492,16 +413,12 @@ export default function Dashboard() {
 
         </div>
 
-        {/* Independent Donation */}
         {userId && <Donate userId={userId} />}
-
-        {/* Proof Upload (visible only to winners) */}
         {userId && <ProofUpload userId={userId} />}
 
       </div>
 
-
-            {/* CANCELLATION MODAL */}
+      {/* CANCELLATION MODAL */}
       {showCancelModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-3xl max-w-md w-full mx-4 p-8">
@@ -509,13 +426,12 @@ export default function Dashboard() {
             <p className="text-red-400 text-sm mb-6">
               You will immediately lose access to all future draws and prize pools.
             </p>
-
             <div className="mb-6">
               <label className="block text-sm text-gray-400 mb-2">Why are you cancelling?</label>
               <select
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                className="w-full bg-slate-700 border border-slate-600 rounded-2xl px-4 py-3 text-white focus:outline-none"
+                className="w-full bg-slate-700 border border-slate-600 rounded-2xl px-4 py-3 text-white focus:border-green-500 focus:outline-none transition"
               >
                 <option value="">Select a reason...</option>
                 <option value="Too expensive">Too expensive</option>
@@ -525,7 +441,6 @@ export default function Dashboard() {
                 <option value="Other">Other</option>
               </select>
             </div>
-
             <div className="flex gap-3">
               <button
                 onClick={() => setShowCancelModal(false)}
