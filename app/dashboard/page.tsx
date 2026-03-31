@@ -51,7 +51,10 @@ export default function Dashboard() {
 
   // ✅ Payment return status banner
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
-
+    // Cancellation modal states
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelLoading, setCancelLoading] = useState(false);
   useEffect(() => {
     init();
     checkPaymentReturn();
@@ -151,22 +154,30 @@ export default function Dashboard() {
     if (data.url) window.location.href = data.url;
   };
 
-  // ✅ Cancellation Flow
+  // ==================== CANCELLATION FLOW (with beautiful modal) ====================
   const handleCancelSubscription = async () => {
-    const confirmCancel = window.confirm("Are you sure you want to cancel your subscription? You will lose access to upcoming draws.");
-    if (!confirmCancel) return;
-    
-    // Update the database to reflect the cancelled state
+    if (!userId || !cancelReason) return;
+    setCancelLoading(true);
+
     const { error } = await supabase
       .from("users")
-      .update({ subscription_status: "inactive" })
+      .update({
+        subscription_status: "inactive",
+        subscription_end_date: null,
+      })
       .eq("id", userId);
 
     if (!error) {
-      setProfile((prev) => prev ? { ...prev, subscription_status: "inactive" } : null);
+      setProfile((prev) =>
+        prev ? { ...prev, subscription_status: "inactive", subscription_end_date: null } : null
+      );
+      setShowCancelModal(false);
+      setCancelReason("");
+      alert("✅ Subscription cancelled successfully. You will lose access to future draws.");
     } else {
       alert("Failed to cancel subscription. Please try again.");
     }
+    setCancelLoading(false);
   };
 
   const totalWon = winners.reduce((sum, w) => sum + (w.prize_amount || 0), 0);
@@ -263,14 +274,12 @@ export default function Dashboard() {
                   Renews:{" "}
                   {new Date(profile.subscription_end_date).toLocaleDateString()}
                 </p>
-                <div className="pt-4 border-t border-slate-700 mt-4">
-                  <button
-                    onClick={handleCancelSubscription}
-                    className="text-sm text-red-400 hover:text-red-300 transition-colors"
-                  >
-                    Cancel Subscription
-                  </button>
-                </div>
+                               <button
+                  onClick={() => setShowCancelModal(true)}
+                  className="text-sm text-red-400 hover:text-red-300 transition-colors flex items-center gap-1"
+                >
+                  Cancel Subscription →
+                </button>
               </>
             )}
 
@@ -490,6 +499,51 @@ export default function Dashboard() {
         {userId && <ProofUpload userId={userId} />}
 
       </div>
+
+
+            {/* CANCELLATION MODAL */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-slate-800 rounded-3xl max-w-md w-full mx-4 p-8">
+            <h3 className="text-2xl font-medium mb-2">Cancel Subscription?</h3>
+            <p className="text-red-400 text-sm mb-6">
+              You will immediately lose access to all future draws and prize pools.
+            </p>
+
+            <div className="mb-6">
+              <label className="block text-sm text-gray-400 mb-2">Why are you cancelling?</label>
+              <select
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                className="w-full bg-slate-700 border border-slate-600 rounded-2xl px-4 py-3 text-white focus:outline-none"
+              >
+                <option value="">Select a reason...</option>
+                <option value="Too expensive">Too expensive</option>
+                <option value="Not enough wins">Not winning enough</option>
+                <option value="Moving to another platform">Moving to another platform</option>
+                <option value="No longer playing golf">No longer playing golf</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="flex-1 py-4 bg-slate-700 hover:bg-slate-600 rounded-2xl font-medium transition"
+              >
+                Keep Subscription
+              </button>
+              <button
+                onClick={handleCancelSubscription}
+                disabled={cancelLoading || !cancelReason}
+                className="flex-1 py-4 bg-red-600 hover:bg-red-700 disabled:bg-red-900 rounded-2xl font-medium transition"
+              >
+                {cancelLoading ? "Cancelling..." : "Yes, Cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

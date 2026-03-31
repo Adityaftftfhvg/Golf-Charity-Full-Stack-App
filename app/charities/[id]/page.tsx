@@ -3,6 +3,16 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useParams } from "next/navigation";
+import Link from "next/link";
+
+type Event = {
+  title: string;
+  date: string;
+  location: string;
+  description: string;
+  spots: number;
+  status: "open" | "coming" | "closed";
+};
 
 type Charity = {
   id: string;
@@ -10,6 +20,7 @@ type Charity = {
   description: string;
   image_url: string | null;
   is_featured: boolean;
+  events: Event[];
 };
 
 export default function CharityDetailPage() {
@@ -27,100 +38,141 @@ export default function CharityDetailPage() {
       .select("*")
       .eq("id", id)
       .single();
+
     setCharity(data);
     setLoading(false);
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-700 flex items-center justify-center text-white">
-      <p className="text-gray-400">Loading...</p>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-zinc-950 to-black flex items-center justify-center text-white">
+        <div className="animate-spin w-8 h-8 border-4 border-emerald-400 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
-  if (!charity) return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-700 flex items-center justify-center text-white">
-      <p className="text-gray-400">Charity not found.</p>
-    </div>
-  );
+  if (!charity) {
+    return <div className="min-h-screen bg-gradient-to-br from-zinc-950 to-black text-white flex items-center justify-center">Charity not found.</div>;
+  }
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("en-IN", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-700 text-white">
-      <div className="flex justify-between items-center px-8 py-5 border-b border-slate-700">
-        <h1 className="text-xl font-bold">Golf Charity</h1>
-        <div className="flex gap-4">
-          <a href="/charities" className="text-sm text-gray-400 hover:text-white transition">← All Charities</a>
-          <a href="/dashboard" className="text-sm text-gray-400 hover:text-white transition">Dashboard</a>
+    <div className="min-h-screen bg-gradient-to-br from-zinc-950 to-black text-white">
+      {/* Top Nav */}
+      <div className="flex justify-between items-center px-8 py-6 border-b border-white/10">
+        <Link href="/" className="text-2xl font-serif tracking-tighter">Golf Charity</Link>
+        <div className="flex gap-6 text-sm">
+          <Link href="/charities" className="hover:text-emerald-400 transition">← All Charities</Link>
+          <Link href="/dashboard" className="hover:text-emerald-400 transition">Dashboard</Link>
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 py-12">
+      <div className="max-w-4xl mx-auto px-6 py-12">
         {charity.is_featured && (
-          <span className="text-xs bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full mb-4 inline-block">
+          <span className="inline-flex items-center gap-2 bg-emerald-500/10 text-emerald-400 text-xs px-4 py-2 rounded-3xl mb-6">
             ⭐ Featured Charity
           </span>
         )}
 
-        <h2 className="text-4xl font-bold mb-6">{charity.name}</h2>
+        <h1 className="text-5xl font-serif tracking-tighter mb-4">{charity.name}</h1>
 
         {charity.image_url && (
           <img
             src={charity.image_url}
             alt={charity.name}
-            className="w-full h-64 object-cover rounded-2xl mb-8"
+            className="w-full h-80 object-cover rounded-3xl mb-10 shadow-2xl"
           />
         )}
 
-        <div className="bg-slate-800 rounded-2xl p-8 mb-6">
-          <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-3">About</h3>
-          <p className="text-gray-300 leading-relaxed text-lg">
+        {/* Impact Bar */}
+        <div className="grid grid-cols-3 gap-4 mb-12">
+          <div className="bg-white/5 rounded-3xl p-6 text-center">
+            <div className="text-emerald-400 text-4xl font-mono font-bold">₹2.4L</div>
+            <div className="text-xs text-zinc-400 tracking-widest mt-1">RAISED THIS MONTH</div>
+          </div>
+          <div className="bg-white/5 rounded-3xl p-6 text-center">
+            <div className="text-emerald-400 text-4xl font-mono font-bold">184</div>
+            <div className="text-xs text-zinc-400 tracking-widest mt-1">GOLFERS SUPPORTING</div>
+          </div>
+          <div className="bg-white/5 rounded-3xl p-6 text-center">
+            <div className="text-emerald-400 text-4xl font-mono font-bold">3</div>
+            <div className="text-xs text-zinc-400 tracking-widest mt-1">UPCOMING EVENTS</div>
+          </div>
+        </div>
+
+        <div className="bg-white/5 rounded-3xl p-8 mb-12">
+          <h3 className="uppercase text-xs tracking-[1px] text-zinc-400 mb-4">Our Story</h3>
+          <p className="text-lg leading-relaxed text-zinc-300">
             {charity.description || "No description available."}
           </p>
         </div>
 
-        <div className="bg-slate-800 rounded-2xl p-8 mb-6">
-          <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-3">How Your Contribution Helps</h3>
-          <p className="text-gray-300 leading-relaxed">
-            A portion of every Golf Charity subscription goes directly to {charity.name}. 
-            You can increase your contribution percentage from your dashboard at any time.
-          </p>
-        </div>
-
-        {/* PRD Requirement: Upcoming Events */}
-        <div className="bg-slate-800 rounded-2xl p-8 mb-6 border border-slate-700 hover:border-emerald-500/30 transition-colors">
-          <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-4 flex items-center gap-2">
-            📅 Upcoming Events
+        {/* === UPCOMING EVENTS — DYNAMIC & BEAUTIFUL === */}
+        <div className="mb-12">
+          <h3 className="text-2xl font-medium mb-6 flex items-center gap-3">
+            📅 Upcoming Golf Days &amp; Events
           </h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-700 pb-4">
-              <div>
-                <h4 className="font-semibold text-white text-lg">Annual Charity Golf Day</h4>
-                <p className="text-sm text-gray-400 mt-1">Join us for an 18-hole scramble to support {charity.name}.</p>
-              </div>
-              <div className="text-right">
-                <span className="block text-emerald-400 font-medium">Next Month</span>
-                <span className="text-xs text-gray-500 uppercase tracking-wider">Registration Open</span>
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-semibold text-white text-lg">Virtual Fundraising Gala</h4>
-                <p className="text-sm text-gray-400 mt-1">Live leaderboard tracking and prize announcements.</p>
-              </div>
-              <div className="text-right">
-                <span className="block text-gray-300 font-medium">TBA</span>
-                <span className="text-xs text-gray-500 uppercase tracking-wider">Coming Soon</span>
-              </div>
-            </div>
+          <div className="grid md:grid-cols-2 gap-6">
+            {charity.events && charity.events.length > 0 ? (
+              charity.events.map((event: Event, i: number) => (
+                <div
+                  key={i}
+                  className="bg-white/5 border border-white/10 hover:border-emerald-400/30 rounded-3xl p-6 transition-all group"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-semibold text-xl group-hover:text-emerald-400 transition">
+                        {event.title}
+                      </h4>
+                      <p className="text-emerald-400 font-medium mt-1">
+                        {formatDate(event.date)}
+                      </p>
+                      <p className="text-zinc-400 text-sm mt-1">{event.location}</p>
+                    </div>
+                    <span
+                      className={`text-xs px-4 py-1 rounded-2xl font-medium ${
+                        event.status === "open"
+                          ? "bg-emerald-400 text-black"
+                          : "bg-zinc-700 text-zinc-300"
+                      }`}
+                    >
+                      {event.status === "open" ? "REGISTRATION OPEN" : "COMING SOON"}
+                    </span>
+                  </div>
+
+                  <p className="text-zinc-400 mt-6 text-sm leading-relaxed">
+                    {event.description}
+                  </p>
+
+                  <div className="mt-8 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      👥 <span className="font-mono">{event.spots} spots left</span>
+                    </div>
+                    <button className="px-6 py-3 bg-white text-black font-medium rounded-2xl hover:scale-105 transition">
+                      Join the Day →
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-zinc-400">No upcoming events yet.</p>
+            )}
           </div>
         </div>
 
-        {/* Fixed Link Tag */}
-        <a
+        <Link
           href="/dashboard"
-          className="block text-center bg-emerald-500 hover:bg-emerald-600 py-4 rounded-xl font-bold text-lg shadow-lg shadow-emerald-500/20 transition-all transform hover:-translate-y-0.5"
+          className="block w-full text-center bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-600 hover:to-teal-500 py-6 rounded-3xl text-xl font-bold shadow-xl shadow-emerald-500/30 transition-all hover:-translate-y-1"
         >
-          Support This Charity — Go to Dashboard
-        </a>
+          Support {charity.name} from Dashboard
+        </Link>
       </div>
     </div>
   );
