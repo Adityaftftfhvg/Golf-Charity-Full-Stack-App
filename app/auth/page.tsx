@@ -7,68 +7,87 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ text: string; type: "error" | "success" } | null>(null);
 
   const login = async () => {
-    if (!email || !password) return setError("Please enter email and password");
+    if (!email || !password) {
+      setMessage({ text: "Please enter your email and password", type: "error" });
+      return;
+    }
     setLoading(true);
-    setError(null);
-
-    console.log("Attempting login for:", email);
+    setMessage(null);
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    console.log("Login result:", { data, error });
-
     if (error) {
-      setError(error.message);
+      setMessage({ text: error.message, type: "error" });
       setLoading(false);
       return;
     }
 
-    if (!data.session) {
-      setError("Login succeeded but no session returned — your email may not be confirmed yet.");
-      setLoading(false);
+    if (data.session) {
+      window.location.replace("/dashboard");
       return;
     }
 
-    console.log("Session OK, redirecting...");
-    window.location.href = "/dashboard";
+    setMessage({ text: "Login succeeded but no session — email may not be confirmed.", type: "error" });
+    setLoading(false);
   };
 
   const signUp = async () => {
-    if (!email || !password) return setError("Please enter email and password");
+    if (!email || !password) {
+      setMessage({ text: "Please enter your email and password", type: "error" });
+      return;
+    }
+    if (password.length < 6) {
+      setMessage({ text: "Password must be at least 6 characters", type: "error" });
+      return;
+    }
     setLoading(true);
-    setError(null);
+    setMessage(null);
 
     const { data, error } = await supabase.auth.signUp({ email, password });
 
-    console.log("Signup result:", { data, error });
-
     if (error) {
-      setError(error.message);
+      // If already registered, try logging in with same credentials
+      if (error.message.toLowerCase().includes("already")) {
+        const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+        if (loginData?.session) {
+          window.location.replace("/dashboard");
+          return;
+        }
+        setMessage({
+          text: loginError?.message || "Account exists — try logging in with your password",
+          type: "error"
+        });
+        setLoading(false);
+        return;
+      }
+
+      setMessage({ text: error.message, type: "error" });
       setLoading(false);
       return;
     }
 
-    try {
-      await fetch("/api/send-welcome", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-    } catch (e) {
-      console.error("Welcome email failed:", e);
-    }
-
-    setLoading(false);
+    // Send welcome email
+    fetch("/api/send-welcome", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    }).catch(() => {});
 
     if (data.session) {
-      // Email confirmations are OFF — user is logged in immediately
-      window.location.href = "/dashboard";
-    } else {
-      setError("Account created! Check your email to confirm before logging in.");
+      // Email confirmation OFF — redirect immediately
+      window.location.replace("/dashboard");
+      return;
     }
+
+    // Email confirmation ON
+    setMessage({
+      text: "Account created! Check your email to confirm, then log in.",
+      type: "success"
+    });
+    setLoading(false);
   };
 
   return (
@@ -80,13 +99,16 @@ export default function AuthPage() {
           <span className="font-bold text-lg">Golf Charity</span>
         </div>
 
-        <h1 className="text-2xl font-bold mb-2 text-center">Welcome Back 👋</h1>
+        <h1 className="text-2xl font-bold mb-2 text-center">Welcome 👋</h1>
         <p className="text-gray-400 text-sm text-center mb-6">Sign in or create a new account</p>
 
-        {/* ✅ Visible error display */}
-        {error && (
-          <div className="bg-red-500/20 border border-red-500/40 text-red-400 text-sm rounded-lg px-4 py-3 mb-4">
-            {error}
+        {message && (
+          <div className={`text-sm rounded-lg px-4 py-3 mb-4 border ${
+            message.type === "error"
+              ? "bg-red-500/20 border-red-500/40 text-red-400"
+              : "bg-green-500/20 border-green-500/40 text-green-400"
+          }`}>
+            {message.text}
           </div>
         )}
 
@@ -95,13 +117,16 @@ export default function AuthPage() {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && login()}
           className="p-3 text-white bg-slate-700 border border-slate-600 focus:border-green-500 focus:outline-none w-full mb-4 rounded-lg"
         />
+
         <input
-          placeholder="Password"
+          placeholder="Password (min 6 characters)"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && login()}
           className="p-3 text-white bg-slate-700 border border-slate-600 focus:border-green-500 focus:outline-none w-full mb-6 rounded-lg"
         />
 

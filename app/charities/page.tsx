@@ -83,9 +83,11 @@ export default function CharitiesPage() {
                 <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-4">Featured</h3>
                 <div className="grid md:grid-cols-2 gap-6">
                   {featured.map((c) => (
+                    // ✅ Clickable — links to charity detail page
                     <div
                       key={c.id}
-                      className="bg-slate-800 border border-yellow-500/30 rounded-2xl p-6 hover:border-yellow-500/60 transition"
+                      onClick={() => window.location.href = `/charities/${c.id}`}
+                      className="bg-slate-800 border border-yellow-500/30 rounded-2xl p-6 hover:border-yellow-500/60 hover:bg-slate-700 transition cursor-pointer"
                     >
                       <div className="flex items-start justify-between mb-3">
                         <h4 className="text-xl font-bold">{c.name}</h4>
@@ -103,6 +105,10 @@ export default function CharitiesPage() {
                       <p className="text-gray-400 text-sm leading-relaxed">
                         {c.description || "No description available."}
                       </p>
+                      {/* ✅ View details link */}
+                      <p className="text-yellow-400 text-xs mt-4 font-medium">
+                        View details →
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -117,9 +123,11 @@ export default function CharitiesPage() {
                 </h3>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {regular.map((c) => (
+                    // ✅ Clickable — links to charity detail page
                     <div
                       key={c.id}
-                      className="bg-slate-800 rounded-2xl p-5 hover:bg-slate-700 transition"
+                      onClick={() => window.location.href = `/charities/${c.id}`}
+                      className="bg-slate-800 rounded-2xl p-5 hover:bg-slate-700 transition cursor-pointer"
                     >
                       {c.image_url && (
                         <img
@@ -131,6 +139,10 @@ export default function CharitiesPage() {
                       <h4 className="text-lg font-semibold mb-2">{c.name}</h4>
                       <p className="text-gray-400 text-sm leading-relaxed">
                         {c.description || "No description available."}
+                      </p>
+                      {/* ✅ View details link */}
+                      <p className="text-green-400 text-xs mt-3 font-medium">
+                        View details →
                       </p>
                     </div>
                   ))}

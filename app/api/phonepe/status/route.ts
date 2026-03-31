@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
@@ -23,20 +25,26 @@ export async function GET(req: NextRequest) {
     const hostUrl = process.env.PHONEPE_HOST_URL!;
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL!;
 
+    console.log("PhonePe status check:", { txnId, type, userId, plan });
+
     const stringToHash = `/pg/v1/status/${merchantId}/${txnId}` + saltKey;
     const sha256Hash = crypto.createHash("sha256").update(stringToHash).digest("hex");
     const checksum = `${sha256Hash}###${saltIndex}`;
 
-    const response = await fetch(`${hostUrl}/pg/v1/status/${merchantId}/${txnId}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "X-VERIFY": checksum,
-        "X-MERCHANT-ID": merchantId,
-      },
-    });
+    const response = await fetch(
+      `${hostUrl}/pg/v1/status/${merchantId}/${txnId}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-VERIFY": checksum,
+          "X-MERCHANT-ID": merchantId,
+        },
+      }
+    );
 
     const data = await response.json();
+    console.log("PhonePe status response:", JSON.stringify(data, null, 2));
 
     if (data.code === "PAYMENT_SUCCESS") {
       if (type === "donation" && userId && charityId) {
@@ -63,11 +71,16 @@ export async function GET(req: NextRequest) {
           .eq("id", userId);
       }
 
-      return NextResponse.redirect(`${baseUrl}/dashboard?payment=success&type=${type}`);
+      return NextResponse.redirect(
+        `${baseUrl}/dashboard?payment=success&type=${type}`
+      );
     }
 
     return NextResponse.redirect(`${baseUrl}/dashboard?payment=failed`);
   } catch (err: any) {
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?payment=failed`);
+    console.error("PhonePe status error:", err.message);
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?payment=failed`
+    );
   }
 }

@@ -40,10 +40,11 @@ export default function Donate({ userId }: { userId: string }) {
     }
   };
 
-  const handleDonate = async () => {
-    if (!charityId || amount < 1) return;
-    setLoading(true);
+const handleDonate = async () => {
+  if (!charityId || amount < 1) return;
+  setLoading(true);
 
+  try {
     const res = await fetch("/api/phonepe/pay", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -56,13 +57,22 @@ export default function Donate({ userId }: { userId: string }) {
     });
 
     const data = await res.json();
+    console.log("PhonePe response in browser:", data);
+
     if (data.url) {
       window.location.href = data.url;
     } else {
-      setMessage("Something went wrong. Please try again.");
+      setMessage(
+        `Error: ${data.phonePeCode || data.error || "Unknown error"} — ${data.phonePeMessage || ""}`
+      );
       setLoading(false);
     }
-  };
+  } catch (err: any) {
+    console.error("Fetch error:", err);
+    setMessage("Network error: " + err.message);
+    setLoading(false);
+  }
+};
 
   return (
     <div className="bg-slate-800 p-6 rounded-xl space-y-4">
