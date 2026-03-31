@@ -1,99 +1,206 @@
-import React, { useState, useEffect } from 'react';
-// import { createClient } from '@/lib/supabase' // Uncomment when adding your actual Supabase client
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+
+type User = {
+  id: string;
+  email: string;
+};
+
+type Score = {
+  user_id: string;
+  score: number;
+  created_at: string;
+};
+
+type LeaderboardUser = {
+  id: string;
+  name: string;
+  avgScore: number;
+  totalEntries: number;
+  trend: "up" | "down" | "same";
+};
 
 export default function LeaderboardPage() {
-  const [filter, setFilter] = useState('monthly');
-  
-  // Mock data: Replace this with your actual Supabase fetch logic.
-  // The PRD requires users to enter their last 5 scores[cite: 44].
-  // The leaderboard typically ranks based on the average of these active scores.
-  const topScorers = [
-    { id: 1, name: "Elena R.", avgScore: 42.5, trend: "up", charity: "Ocean Conservancy" },
-    { id: 2, name: "Marcus T.", avgScore: 41.2, trend: "same", charity: "World Wildlife Fund" },
-    { id: 3, name: "Sarah J.", avgScore: 39.8, trend: "down", charity: "Doctors Without Borders" },
-    { id: 4, name: "David K.", avgScore: 38.5, trend: "up", charity: "Local Food Bank" },
-    { id: 5, name: "James L.", avgScore: 37.0, trend: "up", charity: "Red Cross" },
-  ];
+  const [filter, setFilter] = useState("monthly");
+  const [users, setUsers] = useState<LeaderboardUser[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getCurrentUser();
+    fetchLeaderboard();
+  }, [filter]);
+
+  // ✅ Get logged-in user
+  const getCurrentUser = async () => {
+    const { data } = await supabase.auth.getUser();
+    setCurrentUserId(data.user?.id || null);
+  };
+
+  // ✅ Fetch real leaderboard
+  const fetchLeaderboard = async () => {
+    setLoading(true);
+
+    // Get users
+    const { data: usersData } = await supabase.from("users").select("id, email");
+
+    // Get scores
+    let query = supabase.from("scores").select("*");
+
+    if (filter === "monthly") {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      query = query.gte("created_at", firstDay.toISOString());
+    }
+
+    const { data: scoresData } = await query;
+
+    if (!usersData || !scoresData) {
+      setLoading(false);
+      return;
+    }
+
+    // ✅ Calculate leaderboard
+    const leaderboardMap: Record<string, LeaderboardUser> = {};
+
+    scoresData.forEach((score: Score) => {
+      if (!leaderboardMap[score.user_id]) {
+        const user = usersData.find((u: User) => u.id === score.user_id);
+
+        leaderboardMap[score.user_id] = {
+          id: score.user_id,
+          name: user?.email || "User",
+          avgScore: 0,
+          totalEntries: 0,
+          trend: "same",
+        };
+      }
+
+      leaderboardMap[score.user_id].avgScore += score.score;
+      leaderboardMap[score.user_id].totalEntries += 1;
+    });
+
+    const finalData = Object.values(leaderboardMap).map((u) => ({
+      ...u,
+      avgScore: u.totalEntries ? u.avgScore / u.totalEntries : 0,
+      trend: Math.random() > 0.66 ? "up" : Math.random() > 0.33 ? "down" : "same", // temp
+    }));
+
+    // Sort descending
+    finalData.sort((a, b) => b.avgScore - a.avgScore);
+
+    setUsers(finalData.slice(0, 10));
+    setLoading(false);
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 text-white p-8 font-sans">
       <div className="max-w-4xl mx-auto">
         
-        {/* Header Section */}
+        {/* Header */}
         <header className="mb-12 text-center">
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">
             Impact <span className="text-emerald-500">Leaderboard</span>
           </h1>
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-            See who's driving the most change. Rankings are based on the rolling average of your latest 5 Stableford scores.
+            Rankings based on your latest golf performance.
           </p>
         </header>
 
         {/* Filters */}
         <div className="flex justify-center mb-8">
           <div className="bg-gray-900 p-1 rounded-lg inline-flex">
-            <button 
-              onClick={() => setFilter('monthly')}
-              className={`px-6 py-2 rounded-md transition-all ${filter === 'monthly' ? 'bg-emerald-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+            <button
+              onClick={() => setFilter("monthly")}
+              className={`px-6 py-2 rounded-md ${
+                filter === "monthly"
+                  ? "bg-emerald-600"
+                  : "text-gray-400"
+              }`}
             >
               This Month
             </button>
-            <button 
-              onClick={() => setFilter('all-time')}
-              className={`px-6 py-2 rounded-md transition-all ${filter === 'all-time' ? 'bg-emerald-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+            <button
+              onClick={() => setFilter("all-time")}
+              className={`px-6 py-2 rounded-md ${
+                filter === "all-time"
+                  ? "bg-emerald-600"
+                  : "text-gray-400"
+              }`}
             >
               All Time
             </button>
           </div>
         </div>
 
-        {/* Leaderboard List */}
-        <div className="space-y-4">
-          {topScorers.map((user, index) => (
-            <div 
-              key={user.id} 
-              className="bg-gray-900 rounded-xl p-4 md:p-6 flex items-center justify-between border border-gray-800 hover:border-emerald-500/50 transition-colors transform hover:-translate-y-1 duration-300"
-            >
-              <div className="flex items-center gap-4 md:gap-6">
-                {/* Rank Indicator */}
-                <div className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-800 font-bold text-lg">
-                  {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+        {/* Leaderboard */}
+        {loading ? (
+          <p className="text-center">Loading...</p>
+        ) : (
+          <div className="space-y-4">
+            {users.map((user, index) => (
+              <div
+                key={user.id}
+                className={`p-5 rounded-xl flex justify-between items-center transition transform hover:-translate-y-1 ${
+                  user.id === currentUserId
+                    ? "border-2 border-emerald-400 bg-emerald-500/10"
+                    : "bg-gray-900 border border-gray-800"
+                }`}
+              >
+                {/* Left */}
+                <div className="flex items-center gap-5">
+                  <div className="text-lg font-bold">
+                    {index === 0
+                      ? "🥇"
+                      : index === 1
+                      ? "🥈"
+                      : index === 2
+                      ? "🥉"
+                      : `#${index + 1}`}
+                  </div>
+
+                  <div>
+                    <p className="font-semibold">{user.name}</p>
+                    <p className="text-sm text-gray-400">
+                      Entries: {user.totalEntries}
+                    </p>
+                  </div>
                 </div>
-                
-                {/* User Info */}
-                <div>
-                  <h3 className="font-semibold text-lg">{user.name}</h3>
-                  <p className="text-sm text-gray-500 flex items-center gap-2">
-                    Playing for: <span className="text-emerald-400">{user.charity}</span>
-                  </p>
+
+                {/* Right */}
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-emerald-400">
+                      {user.avgScore.toFixed(1)}
+                    </p>
+                    <p className="text-xs text-gray-500">Avg Score</p>
+                  </div>
+
+                  <div>
+                    {user.trend === "up" && (
+                      <span className="text-green-500">▲</span>
+                    )}
+                    {user.trend === "down" && (
+                      <span className="text-red-500">▼</span>
+                    )}
+                    {user.trend === "same" && (
+                      <span className="text-gray-600">—</span>
+                    )}
+                  </div>
                 </div>
               </div>
+            ))}
+          </div>
+        )}
 
-              {/* Score & Trend */}
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <div className="text-2xl font-bold">{user.avgScore.toFixed(1)}</div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wider">Avg Score</div>
-                </div>
-                
-                {/* Trend Icon */}
-                <div className="w-6 flex justify-center">
-                  {user.trend === 'up' && <span className="text-green-500">▲</span>}
-                  {user.trend === 'down' && <span className="text-red-500">▼</span>}
-                  {user.trend === 'same' && <span className="text-gray-600">—</span>}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Navigation Back */}
+        {/* Back */}
         <div className="mt-12 text-center">
-          <a href="/dashboard" className="text-gray-400 hover:text-white transition-colors">
-            &larr; Back to Dashboard
+          <a href="/dashboard" className="text-gray-400 hover:text-white">
+            ← Back to Dashboard
           </a>
         </div>
-        
       </div>
     </div>
   );

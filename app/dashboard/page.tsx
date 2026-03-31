@@ -187,18 +187,33 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-700 text-white">
 
       {/* NAVBAR */}
-      <div className="flex justify-between items-center px-8 py-5 border-b border-slate-700">
-        <h1 className="text-xl font-bold">Golf Charity</h1>
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-            window.location.href = "/auth";
-          }}
-          className="text-sm text-gray-400 hover:text-white transition"
-        >
-          Sign out
-        </button>
-      </div>
+ {/* NAVBAR */}
+<div className="flex justify-between items-center px-8 py-5 border-b border-slate-700">
+  <h1 className="text-xl font-bold">Golf Charity</h1>
+
+  <div className="flex items-center gap-6">
+    
+    {/* 🏆 Leaderboard Button */}
+    <a
+      href="/leaderboard"
+      className="text-sm text-emerald-400 hover:text-emerald-300 transition font-medium"
+    >
+      🏆 Leaderboard
+    </a>
+
+    {/* Sign Out */}
+    <button
+      onClick={async () => {
+        await supabase.auth.signOut();
+        window.location.href = "/auth";
+      }}
+      className="text-sm text-gray-400 hover:text-white transition"
+    >
+      Sign out
+    </button>
+
+  </div>
+</div>
 
       <div className="max-w-6xl mx-auto px-6 py-10 space-y-8">
 
