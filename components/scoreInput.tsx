@@ -6,15 +6,26 @@ import { supabase } from "@/lib/supabase";
 export default function ScoreInput({
   userId,
   onScoreAdded,
+  // Optional: pass an existing score to enter edit mode
+  editScore,
+  onEditDone,
 }: {
   userId: string;
   onScoreAdded?: () => void;
+  editScore?: { id: string; score: number; played_at: string };
+  onEditDone?: () => void;
 }) {
-  const [score, setScore] = useState("");
-  const [date, setDate] = useState("");
+  const isEditMode = !!editScore;
+
+  const [score, setScore] = useState(
+    isEditMode ? String(editScore.score) : ""
+  );
+  const [date, setDate] = useState(
+    isEditMode ? editScore.played_at.slice(0, 10) : ""
+  );
   const [loading, setLoading] = useState(false);
 
-  const addScore = async () => {
+  const handleSubmit = async () => {
     const num = parseInt(score);
 
     if (isNaN(num) || num < 1 || num > 45) {
@@ -28,6 +39,19 @@ export default function ScoreInput({
 
     setLoading(true);
 
+    if (isEditMode) {
+      // UPDATE existing score
+      await supabase
+        .from("scores")
+        .update({ score: num, played_at: date })
+        .eq("id", editScore.id);
+
+      setLoading(false);
+      onEditDone?.();
+      return;
+    }
+
+    // INSERT new score
     await supabase.from("scores").insert({
       user_id: userId,
       score: num,
@@ -69,13 +93,30 @@ export default function ScoreInput({
         onChange={(e) => setDate(e.target.value)}
         className="p-3 rounded-lg text-black w-full"
       />
-      <button
-        onClick={addScore}
-        disabled={loading}
-        className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 py-3 rounded-lg transition"
-      >
-        {loading ? "Adding..." : "Add Score"}
-      </button>
+      <div className="flex gap-2">
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 py-3 rounded-lg transition"
+        >
+          {loading
+            ? isEditMode
+              ? "Saving..."
+              : "Adding..."
+            : isEditMode
+            ? "Save Changes"
+            : "Add Score"}
+        </button>
+        {isEditMode && onEditDone && (
+          <button
+            onClick={onEditDone}
+            disabled={loading}
+            className="px-4 bg-slate-600 hover:bg-slate-500 disabled:opacity-50 py-3 rounded-lg transition text-sm"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -3,8 +3,19 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+type Pool = {
+  draw_id: string;
+  total_pool: number;
+  five_match_pool: number;
+  four_match_pool: number;
+  three_match_pool: number;
+  jackpot_carried: number;
+  month: string;
+  year: number;
+};
+
 export default function PrizePool() {
-  const [pool, setPool] = useState<any>(null);
+  const [pool, setPool] = useState<Pool | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,30 +44,36 @@ export default function PrizePool() {
       .eq("draw_id", draw.id)
       .single();
 
-    setPool(poolData ? { ...poolData, month: draw.month, year: draw.year } : null);
+    setPool(
+      poolData ? { ...poolData, month: draw.month, year: draw.year } : null
+    );
     setLoading(false);
   };
 
-  if (loading) return (
-    <div className="bg-white/10 rounded-xl p-5 animate-pulse h-40" />
-  );
+  if (loading)
+    return <div className="bg-white/10 rounded-xl p-5 animate-pulse h-40" />;
 
-  if (!pool) return (
-    <div className="bg-white/10 rounded-xl p-5">
-      <h3 className="text-lg font-semibold mb-2">Prize Pool</h3>
-      <p className="text-gray-400 text-sm">No active prize pool yet.</p>
-    </div>
-  );
+  if (!pool)
+    return (
+      <div className="bg-white/10 rounded-xl p-5">
+        <h3 className="text-lg font-semibold mb-2">Prize Pool</h3>
+        <p className="text-gray-400 text-sm">No active prize pool yet.</p>
+      </div>
+    );
 
   return (
     <div className="bg-white/10 rounded-xl p-5 space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Prize Pool</h3>
-        <span className="text-xs text-gray-400">{pool.month} {pool.year}</span>
+        <span className="text-xs text-gray-400">
+          {pool.month} {pool.year}
+        </span>
       </div>
 
       <div className="text-center">
-        <p className="text-xs text-gray-400 uppercase tracking-widest">Total Pool</p>
+        <p className="text-xs text-gray-400 uppercase tracking-widest">
+          Total Pool
+        </p>
         <p className="text-4xl font-bold text-green-400">
           ₹{Number(pool.total_pool).toFixed(2)}
         </p>
@@ -82,13 +99,12 @@ export default function PrizePool() {
         </div>
         <div className="bg-white/5 rounded-lg p-3 text-center">
           <p className="text-xs text-gray-400">3-Match</p>
+          {/* ✅ fixed: was missing ₹ symbol */}
           <p className="text-lg font-bold text-blue-400">
-            {Number(pool.three_match_pool).toFixed(2)}
+            ₹{Number(pool.three_match_pool).toFixed(2)}
           </p>
         </div>
       </div>
     </div>
   );
 }
-
-

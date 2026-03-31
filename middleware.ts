@@ -1,14 +1,24 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // For /dashboard — just check auth session via cookie
+  const getToken = () =>
+    req.cookies.get("sb-access-token")?.value ||
+    req.cookies.get(
+      `sb-${process.env.NEXT_PUBLIC_SUPABASE_PROJECT_REF}-auth-token`
+    )?.value;
+
   if (pathname.startsWith("/dashboard")) {
-    const token = req.cookies.get("sb-access-token")?.value ||
-      req.cookies.get(`sb-${process.env.NEXT_PUBLIC_SUPABASE_PROJECT_REF}-auth-token`)?.value;
+    const token = getToken();
+    if (!token) {
+      return NextResponse.redirect(new URL("/auth", req.url));
+    }
+  }
+
+  if (pathname.startsWith("/admin")) {
+    const token = getToken();
     if (!token) {
       return NextResponse.redirect(new URL("/auth", req.url));
     }

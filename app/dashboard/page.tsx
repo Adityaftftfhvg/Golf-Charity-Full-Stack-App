@@ -27,6 +27,7 @@ type Winner = {
   match_type: number;
   prize_amount: number;
   status: string;
+  draw_id: string;
   created_at: string;
 };
 
@@ -45,9 +46,28 @@ export default function Dashboard() {
   const [draws, setDraws] = useState<Draw[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // ✅ Score edit state
+  const [editingScore, setEditingScore] = useState<Score | null>(null);
+
+  // ✅ Payment return status banner
+  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
+
   useEffect(() => {
     init();
+    checkPaymentReturn();
   }, []);
+
+  const checkPaymentReturn = () => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payment") === "success") {
+      setPaymentStatus("success");
+      // Clean URL without reload
+      window.history.replaceState({}, "", "/dashboard");
+    } else if (params.get("payment") === "failed") {
+      setPaymentStatus("failed");
+      window.history.replaceState({}, "", "/dashboard");
+    }
+  };
 
   const init = async () => {
     const {
@@ -77,34 +97,34 @@ export default function Dashboard() {
     setScores(data || []);
   };
 
- const fetchProfile = async (uid: string) => {
-  const { data } = await supabase
-    .from("users")
-    .select(
-      "subscription_status, subscription_plan, subscription_end_date, charity_id, charity_percentage"
-    )
-    .eq("id", uid)
-    .single();
+  const fetchProfile = async (uid: string) => {
+    const { data } = await supabase
+      .from("users")
+      .select(
+        "subscription_status, subscription_plan, subscription_end_date, charity_id, charity_percentage"
+      )
+      .eq("id", uid)
+      .single();
 
-  // ✅ Auto-lapse expired subscriptions
-  if (data?.subscription_end_date && data.subscription_status === "active") {
-    const isExpired = new Date(data.subscription_end_date) < new Date();
-    if (isExpired) {
-      await supabase
-        .from("users")
-        .update({ subscription_status: "inactive" })
-        .eq("id", uid);
-      data.subscription_status = "inactive";
+    // Auto-lapse expired subscriptions
+    if (data?.subscription_end_date && data.subscription_status === "active") {
+      const isExpired = new Date(data.subscription_end_date) < new Date();
+      if (isExpired) {
+        await supabase
+          .from("users")
+          .update({ subscription_status: "inactive" })
+          .eq("id", uid);
+        data.subscription_status = "inactive";
+      }
     }
-  }
 
-  setProfile(data);
-};
+    setProfile(data);
+  };
 
   const fetchWinnings = async (uid: string) => {
     const { data } = await supabase
       .from("winners")
-      .select("id, match_type, prize_amount, status, created_at")
+      .select("id, match_type, prize_amount, status, draw_id, created_at")
       .eq("user_id", uid)
       .order("created_at", { ascending: false });
     setWinners(data || []);
@@ -120,7 +140,6 @@ export default function Dashboard() {
     setDraws(data || []);
   };
 
-  // ✅ Updated to use PhonePe instead of Stripe
   const handleSubscribe = async (plan: "monthly" | "yearly") => {
     const amount = plan === "yearly" ? 799 : 99;
     const res = await fetch("/api/phonepe/pay", {
@@ -134,6 +153,9 @@ export default function Dashboard() {
 
   const totalWon = winners.reduce((sum, w) => sum + (w.prize_amount || 0), 0);
   const isActive = profile?.subscription_status === "active";
+
+  // ✅ Build a Set of draw IDs the user won in, for participation summary
+  const wonDrawIds = new Set(winners.map((w) => w.draw_id));
 
   if (loading) {
     return (
@@ -164,6 +186,18 @@ export default function Dashboard() {
 
         <h2 className="text-3xl font-bold">Your Dashboard</h2>
 
+        {/* ✅ Payment return banner */}
+        {paymentStatus === "success" && (
+          <div className="bg-green-500/20 border border-green-500/40 text-green-400 rounded-xl px-5 py-4 text-sm font-medium">
+            ✓ Payment successful! Your subscription is now active.
+          </div>
+        )}
+        {paymentStatus === "failed" && (
+          <div className="bg-red-500/20 border border-red-500/40 text-red-400 rounded-xl px-5 py-4 text-sm font-medium">
+            ✗ Payment failed. Please try again.
+          </div>
+        )}
+
         {/* ROW 1: Subscription + Winnings */}
         <div className="grid md:grid-cols-2 gap-6">
 
@@ -188,7 +222,7 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
-            {profile?.subscription_end_date && (
+            {profile?.subscription_end_date && isActive && (
               <p className="text-gray-400 text-sm mb-4">
                 Renews:{" "}
                 {new Date(profile.subscription_end_date).toLocaleDateString()}
@@ -241,6 +275,8 @@ export default function Dashboard() {
                       className={`px-2 py-0.5 rounded text-xs ${
                         w.status === "paid"
                           ? "bg-green-500/20 text-green-400"
+                          : w.status === "approved"
+                          ? "bg-blue-500/20 text-blue-400"
                           : "bg-yellow-500/20 text-yellow-400"
                       }`}
                     >
@@ -257,26 +293,32 @@ export default function Dashboard() {
 
         </div>
 
-        {/* ROW 1.5: Prize Pool */}
+        {/* Prize Pool */}
         <PrizePool />
 
         {/* ROW 2: Score entry + Scores display */}
         <div className="grid md:grid-cols-2 gap-6">
 
-          {/* Add score */}
+          {/* Add / Edit score */}
           <div className="bg-slate-800 p-6 rounded-xl">
             <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-4">
-              Add Score
+              {editingScore ? "Edit Score" : "Add Score"}
             </h3>
             {userId && (
               <ScoreInput
                 userId={userId}
                 onScoreAdded={() => fetchScores(userId)}
+                // ✅ Pass edit props when a score is selected for editing
+                editScore={editingScore ?? undefined}
+                onEditDone={() => {
+                  setEditingScore(null);
+                  fetchScores(userId);
+                }}
               />
             )}
           </div>
 
-          {/* Scores list */}
+          {/* Scores list with edit buttons */}
           <div className="bg-slate-800 p-6 rounded-xl">
             <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-4">
               Your Last 5 Scores
@@ -290,7 +332,11 @@ export default function Dashboard() {
                 {scores.map((s, i) => (
                   <div
                     key={s.id}
-                    className="flex justify-between items-center bg-slate-700 px-4 py-3 rounded-lg"
+                    className={`flex justify-between items-center px-4 py-3 rounded-lg transition ${
+                      editingScore?.id === s.id
+                        ? "bg-purple-500/20 border border-purple-500/40"
+                        : "bg-slate-700"
+                    }`}
                   >
                     <div className="flex items-center gap-3">
                       {i === 0 && (
@@ -307,6 +353,15 @@ export default function Dashboard() {
                         ? new Date(s.played_at).toLocaleDateString()
                         : "No date"}
                     </span>
+                    {/* ✅ Edit button per score */}
+                    <button
+                      onClick={() =>
+                        setEditingScore(editingScore?.id === s.id ? null : s)
+                      }
+                      className="text-xs text-purple-400 hover:text-purple-300 transition ml-2"
+                    >
+                      {editingScore?.id === s.id ? "Cancel" : "Edit"}
+                    </button>
                   </div>
                 ))}
               </div>
@@ -315,7 +370,7 @@ export default function Dashboard() {
 
         </div>
 
-        {/* ROW 3: Charity + Draw history */}
+        {/* ROW 3: Charity + Draw participation */}
         <div className="grid md:grid-cols-2 gap-6">
 
           {/* Charity */}
@@ -333,38 +388,59 @@ export default function Dashboard() {
             {userId && <CharitySelect userId={userId} />}
           </div>
 
-          {/* Draw participation */}
+          {/* ✅ Draw participation summary — now shows whether the user was entered */}
           <div className="bg-slate-800 p-6 rounded-xl">
-            <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-4">
-              Recent Draws
+            <h3 className="text-sm text-gray-400 uppercase tracking-wide mb-1">
+              Draw Participation
             </h3>
+            <p className="text-xs text-gray-500 mb-4">
+              {draws.length > 0
+                ? `Showing last ${draws.length} published draw${draws.length > 1 ? "s" : ""}`
+                : ""}
+            </p>
             {draws.length === 0 ? (
               <p className="text-gray-500 text-sm">No draws published yet.</p>
             ) : (
               <div className="space-y-2">
-                {draws.map((d) => (
-                  <div
-                    key={d.id}
-                    className="flex justify-between items-center bg-slate-700 px-4 py-3 rounded-lg"
-                  >
-                    <span className="text-gray-300">
-                      {d.month} {d.year}
-                    </span>
-                    <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded capitalize">
-                      {d.status}
-                    </span>
-                  </div>
-                ))}
+                {draws.map((d) => {
+                  const won = wonDrawIds.has(d.id);
+                  return (
+                    <div
+                      key={d.id}
+                      className="flex justify-between items-center bg-slate-700 px-4 py-3 rounded-lg"
+                    >
+                      <span className="text-gray-300">
+                        {d.month} {d.year}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {/* Entered badge — active subscribers at draw time are always entered */}
+                        {isActive && (
+                          <span className="text-xs bg-slate-600 text-gray-400 px-2 py-0.5 rounded">
+                            Entered
+                          </span>
+                        )}
+                        {won && (
+                          <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-medium">
+                            Winner 🏆
+                          </span>
+                        )}
+                        <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded capitalize">
+                          {d.status}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
 
         </div>
 
-        {/* ROW 4: Independent Donation */}
+        {/* Independent Donation */}
         {userId && <Donate userId={userId} />}
 
-        {/* ROW 5: Proof Upload (visible only to winners) */}
+        {/* Proof Upload (visible only to winners) */}
         {userId && <ProofUpload userId={userId} />}
 
       </div>
