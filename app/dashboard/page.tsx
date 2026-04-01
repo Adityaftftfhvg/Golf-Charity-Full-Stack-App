@@ -1,6 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+
+import React from "react";
+
+
+
+
+
+
+
+ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import ScoreInput from "@/components/ScoreInput";
 import CharitySelect from "@/components/CharitySelect";
@@ -332,3 +341,6 @@ export default function Dashboard() {
     </>
   );
 }
+
+
+
