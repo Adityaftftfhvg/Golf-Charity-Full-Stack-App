@@ -51,8 +51,8 @@ function BarChart({ data, color }: { data: { label: string; value: number }[]; c
   const max = Math.max(...data.map((d) => d.value), 1);
   return (
     <div className="flex items-end gap-2 h-32 mt-4">
-     {data.map((d) => (
-  <div key={d.label} className="flex-1 flex flex-col items-center gap-1">
+     {data.map((d, i) => (
+  <div key={i} className="flex-1 flex flex-col items-center gap-1">
           <span className="text-xs text-gray-400">{d.value}</span>
           <div
             className="w-full rounded-t-md transition-all duration-700"

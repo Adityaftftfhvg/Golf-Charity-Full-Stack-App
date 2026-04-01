@@ -59,6 +59,11 @@ export default function CharitiesPage() {
           setUsingDemo(true);
         }
         setLoading(false);
+      })
+      .catch(() => {
+        setCharities(DEMO_CHARITIES);
+        setUsingDemo(true);
+        setLoading(false);
       });
   }, []);
 

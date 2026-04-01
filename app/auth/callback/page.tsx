@@ -1,35 +1,41 @@
-"use client";
-
-import { useEffect } from "react";
-import { supabase } from "@/lib/supabase";
-
-export default function AuthCallbackPage() {
-  useEffect(() => {
-    // Listen for session (handles hash-based OAuth from Google/Facebook/Microsoft)
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        listener.subscription.unsubscribe();
-        window.location.replace("/dashboard");
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+ 
+export async function GET(request: NextRequest) {
+  const { searchParams, origin } = new URL(request.url);
+  const code = searchParams.get("code");
+  const next = searchParams.get("next") ?? "/dashboard";
+ 
+  if (code) {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) => {
+                cookieStore.set(name, value, options);
+              });
+            } catch {
+              // Called from a Server Component — can be ignored if middleware refreshes sessions
+            }
+          },
+        },
       }
-    });
-
-    // Also check immediately in case session already exists (handles code-based OAuth)
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        listener.subscription.unsubscribe();
-        window.location.replace("/dashboard");
-      }
-    });
-
-    return () => listener.subscription.unsubscribe();
-  }, []);
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-700 text-white">
-      <div className="text-center">
-        <div className="w-10 h-10 border-2 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-gray-400 text-sm">Signing you in...</p>
-      </div>
-    </div>
-  );
+    );
+ 
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error) {
+      return NextResponse.redirect(`${origin}${next}`);
+    }
+  }
+ 
+  // If something went wrong, redirect to auth with an error flag
+  return NextResponse.redirect(`${origin}/auth?error=callback_failed`);
 }
