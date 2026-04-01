@@ -145,7 +145,7 @@ export default function DrawPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center", paddingTop:"6rem" }}>
         <div style={{ width: 36, height: 36, border: "2px solid rgba(250,204,21,.2)", borderTopColor: "#facc15", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>

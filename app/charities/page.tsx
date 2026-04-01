@@ -152,7 +152,7 @@ export default function CharitiesPage() {
           ))}
         </div>
 
-        <div style={{ position: "relative", zIndex: 1, maxWidth: 1060, margin: "0 auto", padding: "3rem 1.5rem 5rem" }}>
+        <div style={{ position: "relative", zIndex: 1, maxWidth: 1060, margin: "0 auto", padding: "6rem 1.5rem 5rem" }}>
 
           {/* Hero */}
           <div ref={heroRef} className={`fade-up ${heroIn ? "in" : ""}`} style={{ textAlign: "center", marginBottom: "2.5rem" }}>
