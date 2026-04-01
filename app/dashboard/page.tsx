@@ -11,7 +11,7 @@ import React from "react";
 
  import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import ScoreInput from "@/components/ScoreInput";
+import ScoreInput from "@/components/scoreInput";
 import CharitySelect from "@/components/CharitySelect";
 import ProofUpload from "@/components/ProofUpload";
 import PrizePool from "@/components/PrizePool";
