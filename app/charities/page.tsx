@@ -17,10 +17,19 @@ const DEMO_CHARITIES: Charity[] = [
 
 function useInView(threshold = 0.08) {
   const ref = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(true);
+  const [inView, setInView] = useState(false);
   useEffect(() => {
-    const ob = new IntersectionObserver(([e]) => { if (e.isIntersecting) setInView(true); }, { threshold });
-    if (ref.current) ob.observe(ref.current);
+    const ob = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) setInView(true); },
+      { threshold }
+    );
+    if (ref.current) {
+      ob.observe(ref.current);
+    } else {
+      // Element not yet in DOM — force visible after a tick
+      const t = setTimeout(() => setInView(true), 100);
+      return () => clearTimeout(t);
+    }
     return () => ob.disconnect();
   }, []);
   return { ref, inView };

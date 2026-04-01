@@ -18,6 +18,23 @@ body {
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: 0.01em;
+}
+
+/* Display headings — Cormorant feels hand-set, human */
+.font-display,
+h1, h2, h3 {
+  font-family: var(--font-playfair);
+  font-variant-numeric: lining-nums;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+/* Numbers in stats/counters — crisp, aligned */
+.num {
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.02em;
 }
 
 /* ── Scrollbar ─────────────────────────────────────────────── */
@@ -42,9 +59,7 @@ body {
   background-clip: text;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   GLOBAL KEYFRAMES — used across all pages
-══════════════════════════════════════════════════════════════ */
+
 
 /* Entry animations */
 @keyframes fadeInUp {
