@@ -6,7 +6,7 @@ import Link from "next/link";
 
 type Draw = {
   id: string;
-  numbers: nuamber[];
+  numbers: number[];
   month: string;
   year: number;
   status: string;
@@ -98,17 +98,24 @@ export default function DrawPage() {
         if (scores) setUserScores(scores.map((r: { score: number }) => r.score));
       }
 
-      const { data: draws, error } = await supabase.from("draws").select("*").order("created_at", { ascending: false }).limit(4);
-      if (!error && draws && draws.length > 0) {
-        const published = draws.find((d: Draw) => d.status === "published");
-        setCurrentDraw(published || draws[0]);
-        setPastDraws(draws.filter((d: Draw) => d.id !== (published || draws[0]).id));
-      } else {
+      try {
+        const { data: draws, error } = await supabase.from("draws").select("*").order("created_at", { ascending: false }).limit(4);
+        if (!error && draws && draws.length > 0) {
+          const published = draws.find((d: Draw) => d.status === "published");
+          setCurrentDraw(published || draws[0]);
+          setPastDraws(draws.filter((d: Draw) => d.id !== (published || draws[0]).id));
+        } else {
+          setCurrentDraw(DEMO_DRAW);
+          setPastDraws(PAST_DRAWS);
+          setUsingDemo(true);
+        }
+      } catch {
         setCurrentDraw(DEMO_DRAW);
         setPastDraws(PAST_DRAWS);
         setUsingDemo(true);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     init();
   }, []);

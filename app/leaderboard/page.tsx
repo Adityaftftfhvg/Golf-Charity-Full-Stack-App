@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import Link from "next/link";
 
-type Leader = { id: string; email: string; avg_score: number; total_scores: number; best_score: number; };
+type Leader = { id: string; email: string; avg_score: number; total_scores: number; best_score: number; rank: number; };
 
-function useInView(threshold = 0.05) {
+function useInView(threshold = 0.08) {
   const ref = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
   useEffect(() => {
@@ -17,168 +16,267 @@ function useInView(threshold = 0.05) {
   return { ref, inView };
 }
 
-const MEDAL = [
-  { icon:"🥇", color:"#facc15", glow:"rgba(250,204,21,.2)",  border:"rgba(250,204,21,.4)",  bg:"rgba(250,204,21,.08)"  },
-  { icon:"🥈", color:"#94a3b8", glow:"rgba(148,163,184,.1)", border:"rgba(148,163,184,.3)", bg:"rgba(148,163,184,.05)" },
-  { icon:"🥉", color:"#f97316", glow:"rgba(249,115,22,.1)",  border:"rgba(249,115,22,.3)",  bg:"rgba(249,115,22,.05)"  },
+const DEMO_LEADERS: Leader[] = [
+  { id:"1", email:"rohan.mehta@golf.in",   avg_score:41, total_scores:5, best_score:45, rank:1 },
+  { id:"2", email:"priya.sharma@golf.in",  avg_score:38, total_scores:5, best_score:43, rank:2 },
+  { id:"3", email:"aditya.kumar@golf.in",  avg_score:36, total_scores:5, best_score:42, rank:3 },
+  { id:"4", email:"neha.singh@golf.in",    avg_score:34, total_scores:4, best_score:40, rank:4 },
+  { id:"5", email:"vikram.patel@golf.in",  avg_score:33, total_scores:5, best_score:39, rank:5 },
+  { id:"6", email:"ananya.iyer@golf.in",   avg_score:31, total_scores:4, best_score:37, rank:6 },
+  { id:"7", email:"arjun.nair@golf.in",    avg_score:30, total_scores:5, best_score:36, rank:7 },
+  { id:"8", email:"kavya.reddy@golf.in",   avg_score:28, total_scores:3, best_score:34, rank:8 },
 ];
 
-export default function Leaderboard() {
-  const [leaders, setLeaders]             = useState<Leader[]>([]);
-  const [loading, setLoading]             = useState(true);
-  const [error, setError]                 = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const { ref: listRef, inView: listIn }  = useInView(0.05);
+const RANK_COLORS = ["#facc15","#94a3b8","#f97316"];
+const RANK_LABELS = ["🥇","🥈","🥉"];
+const RANK_GLOW = ["rgba(250,204,21,.5)","rgba(148,163,184,.4)","rgba(249,115,22,.4)"];
+
+function RankBar({ score, max, color, delay }: { score:number; max:number; color:string; delay:number }) {
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setWidth((score/max)*100), delay);
+    return () => clearTimeout(t);
+  }, [score, max, delay]);
+  return (
+    <div style={{ height:4, borderRadius:9999, background:"rgba(255,255,255,.06)", overflow:"hidden", marginTop:6 }}>
+      <div style={{ height:"100%", width:`${width}%`, borderRadius:9999, background:color, transition:"width 1.2s cubic-bezier(.16,1,.3,1)", boxShadow:`0 0 8px ${color}` }} />
+    </div>
+  );
+}
+
+export default function LeaderboardPage() {
+  const [leaders, setLeaders] = useState<Leader[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [usingDemo, setUsingDemo] = useState(false);
+  const [hoveredRow, setHoveredRow] = useState<string|null>(null);
+  const { ref: heroRef, inView: heroIn } = useInView(0.05);
+  const { ref: tableRef, inView: tableIn } = useInView(0.05);
+  const { ref: podiumRef, inView: podiumIn } = useInView(0.08);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id||null));
-    fetchLeaders();
+    supabase.rpc("get_leaderboard").then(({ data, error }) => {
+      if (!error && data && data.length > 0) setLeaders(data);
+      else { setLeaders(DEMO_LEADERS); setUsingDemo(true); }
+      setLoading(false);
+    }).catch(() => { setLeaders(DEMO_LEADERS); setUsingDemo(true); setLoading(false); });
   }, []);
 
-  const fetchLeaders = async () => {
-    try {
-      const { data: activeUsers, error: ue } = await supabase.from("users").select("id,email").eq("subscription_status","active");
-      if (ue) throw ue;
-      if (!activeUsers || activeUsers.length === 0) { setError("No active subscribers yet. Subscribe and enter scores to appear here!"); setLoading(false); return; }
-      const activeIds = activeUsers.map(u => u.id);
-      const { data: scoresData, error: se } = await supabase.from("scores").select("user_id,score").in("user_id", activeIds);
-      if (se) throw se;
-      if (!scoresData || scoresData.length === 0) { setError("No scores submitted yet. Enter your scores from the dashboard!"); setLoading(false); return; }
-      const map: Record<string, { scores: number[]; email: string }> = {};
-      activeUsers.forEach(u => { map[u.id] = { scores:[], email:u.email }; });
-      scoresData.forEach(s => { if (map[s.user_id]) map[s.user_id].scores.push(s.score); });
-      const processed: Leader[] = Object.entries(map).filter(([,v])=>v.scores.length>0).map(([id,v]) => {
-        const avg = v.scores.reduce((a,b)=>a+b,0) / v.scores.length;
-        return { id, email:v.email, avg_score:Math.round(avg*10)/10, total_scores:v.scores.length, best_score:Math.max(...v.scores) };
-      }).sort((a,b)=>b.avg_score-a.avg_score).slice(0,10);
-      setLeaders(processed);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load leaderboard");
-    } finally { setLoading(false); }
-  };
+  const top3 = leaders.slice(0,3);
+  const rest = leaders.slice(3);
+  const maxScore = leaders[0]?.best_score || 45;
 
-  const mask = (email: string) => { const [l,d] = email.split("@"); return `${l.slice(0,3)}***@${d}`; };
-
-  if (loading) return (
-    <div style={{ minHeight:"100vh", background:"#080c14", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"1rem" }}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-      <div style={{ width:34, height:34, border:"2px solid rgba(74,222,128,.15)", borderTopColor:"#4ade80", borderRadius:"50%", animation:"spin .8s linear infinite" }} />
-      <p style={{ color:"#475569", fontSize:".85rem" }}>Loading champions…</p>
-    </div>
-  );
-
-  if (error || leaders.length === 0) return (
-    <div style={{ minHeight:"100vh", background:"#080c14", display:"flex", alignItems:"center", justifyContent:"center", padding:"1.5rem" }}>
-      <style>{`@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}`}</style>
-      <div style={{ textAlign:"center", maxWidth:420 }}>
-        <div style={{ fontSize:"3.5rem", marginBottom:"1rem", animation:"float 6s ease-in-out infinite", display:"inline-block" }}>⛳</div>
-        <h2 style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"2rem", fontWeight:800, marginBottom:".75rem" }}>No leaders yet</h2>
-        <p style={{ color:"#64748b", marginBottom:"2rem", fontSize:".9rem" }}>{error||"Be the first to submit scores!"}</p>
-        <Link href="/dashboard" style={{ background:"#4ade80", color:"#080c14", fontWeight:700, padding:".85rem 2rem", borderRadius:11, textDecoration:"none", fontSize:".9rem" }}>Go to Dashboard & Enter Scores</Link>
-      </div>
-    </div>
-  );
+  const initials = (email: string) => email.split("@")[0].split(".").map((s:string) => s[0]?.toUpperCase()).join("").slice(0,2);
+  const displayName = (email: string) => { const n = email.split("@")[0]; return n.split(".").map((s:string) => s.charAt(0).toUpperCase()+s.slice(1)).join(" "); };
 
   return (
     <>
       <style>{`
-        @keyframes spin    { to{transform:rotate(360deg)} }
-        @keyframes float   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
-        @keyframes fadeIn  { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes ring-p  { 0%{transform:scale(.9);opacity:1} 100%{transform:scale(1.8);opacity:0} }
-        @keyframes gold-glow{ 0%,100%{box-shadow:0 0 20px rgba(250,204,21,.2)} 50%{box-shadow:0 0 40px rgba(250,204,21,.4)} }
-        .nav-lu   { position:relative; }
-        .nav-lu::after{ content:'';position:absolute;bottom:-2px;left:0;width:0;height:1px;background:#4ade80;transition:width .3s; }
-        .nav-lu:hover::after{ width:100%; }
-        .ring-dot::after{ content:'';position:absolute;inset:-3px;border-radius:50%;border:1.5px solid rgba(74,222,128,.4);animation:ring-p 2.5s ease-out infinite; }
-        .fade-up  { opacity:0;transform:translateY(20px);transition:opacity .6s cubic-bezier(.16,1,.3,1),transform .6s cubic-bezier(.16,1,.3,1); }
-        .fade-up.in{ opacity:1;transform:translateY(0); }
-        .d1{transition-delay:.05s} .d2{transition-delay:.1s} .d3{transition-delay:.15s} .d4{transition-delay:.2s} .d5{transition-delay:.25s}
-        .d6{transition-delay:.3s} .d7{transition-delay:.35s} .d8{transition-delay:.4s} .d9{transition-delay:.45s} .d10{transition-delay:.5s}
-        .leader-row{ transition:background .2s,border-color .2s; }
-        .leader-row:hover{ background:rgba(255,255,255,.05)!important; }
-        .gold-card{ animation: gold-glow 3s ease-in-out infinite; }
+        @keyframes podium-rise { from{opacity:0;transform:translateY(60px) scaleY(0)} to{opacity:1;transform:translateY(0) scaleY(1)} }
+        @keyframes crown-float { 0%,100%{transform:translateY(0) rotate(-5deg)} 50%{transform:translateY(-8px) rotate(5deg)} }
+        @keyframes row-enter { from{opacity:0;transform:translateX(-20px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes rank-pop { 0%{transform:scale(0)} 60%{transform:scale(1.2)} 100%{transform:scale(1)} }
+        @keyframes gold-shimmer { 0%{background-position:-200%} 100%{background-position:200%} }
+
+        .leaderboard-row {
+          transition: transform .28s cubic-bezier(.16,1,.3,1), background .22s, box-shadow .28s;
+          cursor: default;
+          animation: row-enter .6s cubic-bezier(.16,1,.3,1) both;
+        }
+        .leaderboard-row:hover {
+          transform: translateX(6px) scale(1.01);
+          background: rgba(255,255,255,.055) !important;
+          box-shadow: 0 8px 30px rgba(0,0,0,.3), 4px 0 0 rgba(74,222,128,.4) !important;
+        }
+
+        .podium-bar { transform-origin: bottom; animation: podium-rise 1s cubic-bezier(.34,1.2,.64,1) both; }
+
+        .gold-text {
+          background: linear-gradient(90deg, #facc15, #fde68a, #f59e0b, #facc15);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: gold-shimmer 3s linear infinite;
+        }
+
+        .crown { animation: crown-float 3s ease-in-out infinite; display:inline-block; }
+        .rank-num { animation: rank-pop .5s cubic-bezier(.34,1.56,.64,1) both; }
+
+        .stat-pill {
+          background: rgba(255,255,255,.05);
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 9999px;
+          padding: .25rem .75rem;
+          font-size: .75rem;
+          font-weight: 600;
+          color: #64748b;
+          display: inline-flex;
+          align-items: center;
+          gap: .3rem;
+        }
       `}</style>
 
-      <div style={{ minHeight:"100vh", background:"#080c14", color:"#f1f5f9", paddingBottom:"4rem", fontFamily:"var(--font-dm-sans,DM Sans,sans-serif)" }}>
-        {/* Glow blobs */}
+      <div style={{ minHeight:"100vh", background:"#080c14", color:"#f1f5f9", fontFamily:"var(--font-dm-sans,DM Sans,sans-serif)", overflowX:"hidden" }}>
+
+        {/* Ambient bg */}
         <div style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:0 }}>
-          <div style={{ position:"absolute", width:500, height:500, borderRadius:"50%", background:"radial-gradient(circle,rgba(250,204,21,.1),transparent)", filter:"blur(100px)", top:-80, left:"25%" }} />
-          <div style={{ position:"absolute", width:350, height:350, borderRadius:"50%", background:"radial-gradient(circle,rgba(74,222,128,.07),transparent)", filter:"blur(80px)", bottom:100, right:-40 }} />
+          <div className="float-orb" style={{ "--d":"18s","--delay":"-6s", position:"absolute", width:500, height:500, borderRadius:"50%", background:"radial-gradient(circle,rgba(250,204,21,.07),transparent)", filter:"blur(100px)", top:-60, right:"10%" } as React.CSSProperties} />
+          <div className="float-orb" style={{ "--d":"22s","--delay":"-10s", position:"absolute", width:400, height:400, borderRadius:"50%", background:"radial-gradient(circle,rgba(74,222,128,.06),transparent)", filter:"blur(90px)", bottom:"20%", left:"5%" } as React.CSSProperties} />
         </div>
 
-       
+        <div style={{ position:"relative", zIndex:1, maxWidth:900, margin:"0 auto", padding:"3rem 1.5rem 5rem" }}>
 
-        <div style={{ position:"relative", zIndex:1, maxWidth:700, margin:"0 auto", padding:"3rem 1.5rem" }}>
-
-          {/* ── HEADER ── */}
-          <div style={{ marginBottom:"2.5rem" }}>
-            <p style={{ fontSize:".7rem", fontWeight:600, letterSpacing:".12em", textTransform:"uppercase", color:"#facc15", marginBottom:".5rem" }}>🏆 This Month</p>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", flexWrap:"wrap", gap:"1rem" }}>
-              <div>
-                <h1 style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"2.8rem", fontWeight:900, lineHeight:1 }}>Leaderboard</h1>
-                <p style={{ color:"#475569", fontSize:".82rem", marginTop:".4rem" }}>Top 10 by avg Stableford · Active subscribers only</p>
+          {/* Hero */}
+          <div ref={heroRef} className={`fade-up ${heroIn?"in":""}`} style={{ textAlign:"center", marginBottom:"3rem" }}>
+            {usingDemo && (
+              <div style={{ display:"inline-flex", alignItems:"center", gap:".4rem", padding:".28rem .8rem", borderRadius:9999, background:"rgba(167,139,250,.1)", border:"1px solid rgba(167,139,250,.2)", color:"#c4b5fd", fontSize:".68rem", fontWeight:600, letterSpacing:".08em", textTransform:"uppercase", marginBottom:".9rem" }}>
+                ✨ Preview Mode
               </div>
-              <Link href="/" style={{ background:"rgba(255,255,255,.05)", border:"1px solid rgba(255,255,255,.1)", color:"#94a3b8", fontSize:".83rem", padding:".5rem 1rem", borderRadius:9, textDecoration:"none", transition:"all .2s" }} onMouseEnter={e=>{(e.currentTarget as HTMLAnchorElement).style.color="#f1f5f9";}} onMouseLeave={e=>{(e.currentTarget as HTMLAnchorElement).style.color="#94a3b8";}}>← Back</Link>
-            </div>
+            )}
+            <div className="crown" style={{ fontSize:"3rem", marginBottom:".75rem" }}>🏆</div>
+            <h1 style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"clamp(2.2rem,5vw,3.5rem)", fontWeight:900, lineHeight:1.06, letterSpacing:"-.02em", marginBottom:".75rem" }}>
+              <span className="gold-text">Monthly</span> Leaderboard
+            </h1>
+            <p style={{ color:"#64748b", fontSize:".95rem", maxWidth:440, margin:"0 auto", lineHeight:1.75 }}>
+              Top performers by average Stableford score this month.
+            </p>
           </div>
 
-          {/* ── PODIUM (top 3) ── */}
-          {leaders.length >= 3 && (
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1.15fr 1fr", gap:".75rem", marginBottom:"2rem", alignItems:"flex-end" }}>
-              {[leaders[1], leaders[0], leaders[2]].map((leader, podiumIdx) => {
-                const rankIdx = podiumIdx===0?1:podiumIdx===1?0:2;
-                const m = MEDAL[rankIdx];
-                const heights = [100, 130, 88];
-                const isMe = leader.id === currentUserId;
-                return (
-                  <div key={leader.id} className={rankIdx===0?"gold-card":""} style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-end", padding:"1rem .75rem .875rem", borderRadius:14, background: isMe?"rgba(74,222,128,.08)":m.bg, border:`1px solid ${isMe?"rgba(74,222,128,.35)":m.border}`, height:heights[podiumIdx], boxShadow: rankIdx===0?`0 0 30px ${m.glow}`:"none" }}>
-                    <div style={{ fontSize:"1.6rem", marginBottom:".25rem" }}>{m.icon}</div>
-                    <div style={{ fontSize:"1.2rem", fontWeight:800, fontFamily:"var(--font-playfair,serif)", color:m.color, lineHeight:1 }}>{leader.avg_score}</div>
-                    <div style={{ fontSize:".68rem", color:"#64748b", marginTop:".2rem", textAlign:"center", maxWidth:80, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{mask(leader.email).split("@")[0]}…</div>
-                    {isMe && <span style={{ marginTop:".25rem", background:"rgba(74,222,128,.15)", border:"1px solid rgba(74,222,128,.3)", color:"#4ade80", fontSize:".6rem", fontWeight:700, padding:".1rem .4rem", borderRadius:9999 }}>You</span>}
+          {/* Podium visualization */}
+          {!loading && top3.length === 3 && (
+            <div ref={podiumRef} style={{ marginBottom:"3rem" }}>
+              <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"center", gap:"1rem", height:200, position:"relative" }}>
+                {/* 2nd place */}
+                <div className={`fade-up d2 ${podiumIn?"in":""}`} style={{ textAlign:"center", flex:1, maxWidth:160 }}>
+                  <div style={{ marginBottom:".5rem" }}>
+                    <div style={{ width:52, height:52, borderRadius:"50%", background:"linear-gradient(135deg,rgba(148,163,184,.3),rgba(148,163,184,.1))", border:"2px solid rgba(148,163,184,.4)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto .4rem", fontWeight:900, fontSize:".9rem", color:"#94a3b8" }}>{initials(top3[1].email)}</div>
+                    <div style={{ fontSize:".78rem", color:"#64748b", fontWeight:600 }}>{displayName(top3[1].email)}</div>
+                    <div style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"1.4rem", fontWeight:900, color:"#94a3b8" }}>{top3[1].avg_score}</div>
                   </div>
-                );
-              })}
+                  <div className="podium-bar" style={{ animationDelay:".2s", height:120, background:"linear-gradient(to top, rgba(148,163,184,.3), rgba(148,163,184,.1))", border:"1px solid rgba(148,163,184,.2)", borderRadius:"10px 10px 0 0", display:"flex", alignItems:"flex-start", justifyContent:"center", paddingTop:"1rem" }}>
+                    <span style={{ fontSize:"1.5rem" }}>🥈</span>
+                  </div>
+                </div>
+
+                {/* 1st place */}
+                <div className={`fade-up d1 ${podiumIn?"in":""}`} style={{ textAlign:"center", flex:1, maxWidth:160 }}>
+                  <div style={{ marginBottom:".5rem" }}>
+                    <div style={{ position:"relative", display:"inline-block" }}>
+                      <div style={{ width:60, height:60, borderRadius:"50%", background:"linear-gradient(135deg,#facc15,#f59e0b)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto .4rem", fontWeight:900, fontSize:"1rem", color:"#050a0e", boxShadow:"0 8px 30px rgba(250,204,21,.5)", animation:"glow-gold 3s ease infinite" }}>{initials(top3[0].email)}</div>
+                      <div style={{ position:"absolute", top:-14, left:"50%", transform:"translateX(-50%)", fontSize:"1.2rem" }} className="crown">👑</div>
+                    </div>
+                    <div style={{ fontSize:".78rem", fontWeight:700 }} className="gold-text">{displayName(top3[0].email)}</div>
+                    <div style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"1.7rem", fontWeight:900 }} className="gold-text">{top3[0].avg_score}</div>
+                  </div>
+                  <div className="podium-bar" style={{ animationDelay:".05s", height:160, background:"linear-gradient(to top, rgba(250,204,21,.25), rgba(250,204,21,.08))", border:"1px solid rgba(250,204,21,.3)", borderRadius:"10px 10px 0 0", display:"flex", alignItems:"flex-start", justifyContent:"center", paddingTop:".75rem", boxShadow:"0 -10px 40px rgba(250,204,21,.15)" }}>
+                    <span style={{ fontSize:"1.8rem" }}>🥇</span>
+                  </div>
+                </div>
+
+                {/* 3rd place */}
+                <div className={`fade-up d3 ${podiumIn?"in":""}`} style={{ textAlign:"center", flex:1, maxWidth:160 }}>
+                  <div style={{ marginBottom:".5rem" }}>
+                    <div style={{ width:48, height:48, borderRadius:"50%", background:"linear-gradient(135deg,rgba(249,115,22,.3),rgba(249,115,22,.1))", border:"2px solid rgba(249,115,22,.3)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto .4rem", fontWeight:900, fontSize:".85rem", color:"#f97316" }}>{initials(top3[2].email)}</div>
+                    <div style={{ fontSize:".78rem", color:"#64748b", fontWeight:600 }}>{displayName(top3[2].email)}</div>
+                    <div style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"1.3rem", fontWeight:900, color:"#f97316" }}>{top3[2].avg_score}</div>
+                  </div>
+                  <div className="podium-bar" style={{ animationDelay:".35s", height:90, background:"linear-gradient(to top, rgba(249,115,22,.25), rgba(249,115,22,.08))", border:"1px solid rgba(249,115,22,.2)", borderRadius:"10px 10px 0 0", display:"flex", alignItems:"flex-start", justifyContent:"center", paddingTop:"1rem" }}>
+                    <span style={{ fontSize:"1.3rem" }}>🥉</span>
+                  </div>
+                </div>
+              </div>
+              {/* Stage base */}
+              <div style={{ height:8, background:"linear-gradient(90deg,rgba(250,204,21,.15),rgba(74,222,128,.1),rgba(250,204,21,.15))", borderRadius:"0 0 8px 8px", marginTop:0 }} />
             </div>
           )}
 
-          {/* ── FULL LIST ── */}
-          <div ref={listRef} style={{ display:"flex", flexDirection:"column", gap:".625rem" }}>
-            {leaders.map((leader, i) => {
-              const isMe = leader.id === currentUserId;
-              const m = MEDAL[i];
-              return (
-                <div key={leader.id} className={`fade-up d${Math.min(i+1,10)} ${listIn?"in":""} leader-row`} style={{ display:"flex", alignItems:"center", gap:".875rem", padding:".875rem 1rem", borderRadius:13, background: isMe?"rgba(74,222,128,.06)":i===0?MEDAL[0].bg:"rgba(255,255,255,.03)", border:`1px solid ${isMe?"rgba(74,222,128,.3)":m?m.border:"rgba(255,255,255,.07)"}`, boxShadow: i===0?`0 4px 24px ${MEDAL[0].glow}`:"none" }}>
-                  {/* Rank */}
-                  <div style={{ width:32, textAlign:"center", flexShrink:0, fontSize: m?"1.2rem":".82rem", fontWeight:700, color: m?undefined:"#374151", fontFamily: m?undefined:"monospace" }}>
-                    {m ? m.icon : `#${i+1}`}
-                  </div>
-                  {/* Avatar */}
-                  <div style={{ width:36, height:36, borderRadius:10, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:".85rem", background: isMe?"linear-gradient(135deg,#4ade80,#22c55e)":m?`linear-gradient(135deg,${m.color}44,${m.color}22)`:"rgba(255,255,255,.07)", color: isMe?"#080c14":m?.color||"#64748b" }}>
-                    {leader.email[0].toUpperCase()}
-                  </div>
-                  {/* Info */}
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:".5rem", flexWrap:"wrap" }}>
-                      <span style={{ fontSize:".875rem", fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{mask(leader.email)}</span>
-                      {isMe && <span style={{ background:"rgba(74,222,128,.12)", border:"1px solid rgba(74,222,128,.25)", color:"#4ade80", fontSize:".62rem", fontWeight:700, padding:".1rem .4rem", borderRadius:9999 }}>You</span>}
+          {/* Full table */}
+          <div ref={tableRef}>
+            <div className={`fade-up ${tableIn?"in":""}`} style={{ display:"flex", alignItems:"center", gap:"1rem", marginBottom:"1.25rem" }}>
+              <span style={{ fontSize:".68rem", fontWeight:700, letterSpacing:".12em", textTransform:"uppercase", color:"#64748b" }}>⛳ Full Rankings</span>
+              <div style={{ flex:1, height:1, background:"linear-gradient(90deg,rgba(255,255,255,.08),transparent)" }} />
+              <span style={{ fontSize:".7rem", color:"#374151" }}>{leaders.length} players</span>
+            </div>
+
+            {loading ? (
+              <div style={{ display:"flex", flexDirection:"column", gap:".75rem" }}>
+                {Array(6).fill(0).map((_,i) => <div key={i} className="skeleton" style={{ height:72, borderRadius:14 }} />)}
+              </div>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:".6rem" }}>
+                {leaders.map((leader, i) => (
+                  <div
+                    key={leader.id}
+                    className="leaderboard-row"
+                    style={{
+                      animationDelay:`${i*.07}s`,
+                      background: i===0 ? "rgba(250,204,21,.05)" : i===1 ? "rgba(148,163,184,.04)" : i===2 ? "rgba(249,115,22,.04)" : "rgba(255,255,255,.03)",
+                      border: i===0 ? "1px solid rgba(250,204,21,.2)" : i===1 ? "1px solid rgba(148,163,184,.15)" : i===2 ? "1px solid rgba(249,115,22,.15)" : "1px solid rgba(255,255,255,.06)",
+                      borderRadius:16,
+                      padding:"1rem 1.25rem",
+                      display:"flex",
+                      alignItems:"center",
+                      gap:"1rem",
+                      boxShadow: i===0 ? "0 0 0 1px rgba(250,204,21,.08), inset 0 1px 0 rgba(250,204,21,.05)" : "none",
+                    }}
+                    onMouseEnter={() => setHoveredRow(leader.id)}
+                    onMouseLeave={() => setHoveredRow(null)}
+                  >
+                    {/* Rank */}
+                    <div className="rank-num" style={{ animationDelay:`${i*.07 + .2}s`, width:40, textAlign:"center", flexShrink:0 }}>
+                      {i < 3 ? (
+                        <span style={{ fontSize:"1.4rem" }}>{RANK_LABELS[i]}</span>
+                      ) : (
+                        <span style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"1.2rem", fontWeight:900, color:"#374151" }}>#{leader.rank}</span>
+                      )}
                     </div>
-                    <p style={{ fontSize:".72rem", color:"#374151", marginTop:2 }}>{leader.total_scores} score{leader.total_scores!==1?"s":""} · Best: {leader.best_score}</p>
+
+                    {/* Avatar */}
+                    <div style={{
+                      width:44, height:44, borderRadius:"50%", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:".88rem",
+                      background: i===0 ? "linear-gradient(135deg,#facc15,#f59e0b)" : i===1 ? "linear-gradient(135deg,rgba(148,163,184,.4),rgba(148,163,184,.2))" : i===2 ? "linear-gradient(135deg,rgba(249,115,22,.4),rgba(249,115,22,.2))" : "rgba(255,255,255,.07)",
+                      color: i < 3 ? "#050a0e" : "#94a3b8",
+                      border: i < 3 ? `2px solid ${RANK_COLORS[i]}55` : "1px solid rgba(255,255,255,.09)",
+                      boxShadow: i < 3 ? `0 4px 20px ${RANK_GLOW[i]}` : "none",
+                      transition:"transform .25s",
+                      transform: hoveredRow===leader.id ? "scale(1.1) rotate(5deg)" : "scale(1)",
+                    }}>
+                      {initials(leader.email)}
+                    </div>
+
+                    {/* Info */}
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontWeight:700, fontSize:".9rem", marginBottom:".25rem", display:"flex", alignItems:"center", gap:".5rem" }}>
+                        <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{displayName(leader.email)}</span>
+                        {i===0 && <span className="crown" style={{ fontSize:".9rem", flexShrink:0 }}>👑</span>}
+                      </div>
+                      <div style={{ display:"flex", gap:".5rem", flexWrap:"wrap" }}>
+                        <span className="stat-pill">⛳ {leader.total_scores} rounds</span>
+                        <span className="stat-pill">🏆 Best: {leader.best_score}</span>
+                      </div>
+                      <RankBar score={leader.avg_score} max={maxScore} color={i < 3 ? RANK_COLORS[i] : "#4ade80"} delay={i * 80 + 400} />
+                    </div>
+
+                    {/* Score */}
+                    <div style={{ textAlign:"right", flexShrink:0 }}>
+                      <div style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"1.8rem", fontWeight:900, lineHeight:1, color: i < 3 ? RANK_COLORS[i] : "#f1f5f9", textShadow: i < 3 ? `0 0 20px ${RANK_GLOW[i]}` : "none" }}>{leader.avg_score}</div>
+                      <div style={{ fontSize:".65rem", color:"#374151", fontWeight:600, letterSpacing:".08em", textTransform:"uppercase" }}>avg pts</div>
+                    </div>
                   </div>
-                  {/* Score */}
-                  <div style={{ textAlign:"right", flexShrink:0 }}>
-                    <div style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"1.6rem", fontWeight:800, lineHeight:1, color: i===0?"#facc15":isMe?"#4ade80":"#e2e8f0" }}>{leader.avg_score}</div>
-                    <div style={{ fontSize:".65rem", color:"#374151", letterSpacing:".06em" }}>AVG</div>
-                  </div>
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            )}
           </div>
 
-          <p style={{ textAlign:"center", color:"#374151", fontSize:".75rem", marginTop:"2rem" }}>
-            Updated live · Only active subscribers · Resets monthly
-          </p>
+          {/* CTA */}
+          <div className={`fade-up ${tableIn?"in":""}`} style={{ textAlign:"center", marginTop:"3rem" }}>
+            <a href="/dashboard" style={{ display:"inline-flex", alignItems:"center", gap:".5rem", background:"linear-gradient(135deg,#4ade80,#22c55e)", color:"#050a0e", fontWeight:800, fontSize:".95rem", padding:".9rem 2rem", borderRadius:12, textDecoration:"none", transition:"transform .22s,box-shadow .28s", boxShadow:"0 12px 40px rgba(74,222,128,.3)" }}
+              onMouseEnter={e=>{(e.currentTarget as HTMLAnchorElement).style.transform="translateY(-3px)";(e.currentTarget as HTMLAnchorElement).style.boxShadow="0 20px 60px rgba(74,222,128,.5)";}}
+              onMouseLeave={e=>{(e.currentTarget as HTMLAnchorElement).style.transform="none";(e.currentTarget as HTMLAnchorElement).style.boxShadow="0 12px 40px rgba(74,222,128,.3)";}}>
+              ⛳ Submit Your Scores
+            </a>
+            <p style={{ color:"#2d3748", fontSize:".78rem", marginTop:".75rem" }}>Enter scores to climb the leaderboard</p>
+          </div>
         </div>
       </div>
     </>
