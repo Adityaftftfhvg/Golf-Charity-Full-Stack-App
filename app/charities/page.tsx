@@ -17,7 +17,7 @@ const DEMO_CHARITIES: Charity[] = [
 
 function useInView(threshold = 0.08) {
   const ref = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
+  const [inView, setInView] = useState(true);
   useEffect(() => {
     const ob = new IntersectionObserver(([e]) => { if (e.isIntersecting) setInView(true); }, { threshold });
     if (ref.current) ob.observe(ref.current);
