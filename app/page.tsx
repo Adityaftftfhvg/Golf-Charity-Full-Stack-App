@@ -3,40 +3,31 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 
-type Charity = {
-  id: string;
-  name: string;
-  description: string;
-  image_url: string | null;
-};
+type Charity = { id: string; name: string; description: string; image_url: string | null; };
 
-function useCountUp(target: number, duration: number = 2000, start: boolean = false) {
+function useCountUp(target: number, duration = 2000, start = false) {
   const [count, setCount] = useState(0);
   useEffect(() => {
     if (!start) return;
-    let startTime: number | null = null;
-    const step = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.floor(eased * target));
-      if (progress < 1) requestAnimationFrame(step);
+    let t0: number | null = null;
+    const step = (ts: number) => {
+      if (!t0) t0 = ts;
+      const p = Math.min((ts - t0) / duration, 1);
+      setCount(Math.floor((1 - Math.pow(1 - p, 3)) * target));
+      if (p < 1) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
   }, [target, duration, start]);
   return count;
 }
 
-function useInView(threshold = 0.2) {
+function useInView(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setInView(true); },
-      { threshold }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
+    const ob = new IntersectionObserver(([e]) => { if (e.isIntersecting) setInView(true); }, { threshold });
+    if (ref.current) ob.observe(ref.current);
+    return () => ob.disconnect();
   }, []);
   return { ref, inView };
 }
@@ -48,381 +39,294 @@ export default function HomePage() {
   const [statsVisible, setStatsVisible] = useState(false);
   const statsRef = useRef<HTMLDivElement>(null);
 
-  const poolCount = useCountUp(248500, 2200, statsVisible);
-  const donatedCount = useCountUp(84200, 2000, statsVisible);
-  const membersCount = useCountUp(1340, 1800, statsVisible);
+  const pool    = useCountUp(248500, 2200, statsVisible);
+  const donated = useCountUp(84200,  2000, statsVisible);
+  const members = useCountUp(1340,   1800, statsVisible);
 
   useEffect(() => {
-    checkSession();
-    fetchFeaturedCharity();
-    const interval = setInterval(() => setActiveStep(s => (s + 1) % 3), 3000);
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setStatsVisible(true); },
-      { threshold: 0.3 }
-    );
-    if (statsRef.current) observer.observe(statsRef.current);
-    return () => { clearInterval(interval); observer.disconnect(); };
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(!!session));
+    supabase.from("charities").select("id,name,description,image_url").eq("is_featured", true).limit(1).single().then(({ data }) => { if (data) setFeaturedCharity(data); });
+    const iv = setInterval(() => setActiveStep(s => (s + 1) % 3), 3200);
+    const ob = new IntersectionObserver(([e]) => { if (e.isIntersecting) setStatsVisible(true); }, { threshold: 0.3 });
+    if (statsRef.current) ob.observe(statsRef.current);
+    return () => { clearInterval(iv); ob.disconnect(); };
   }, []);
 
-  const checkSession = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    setSession(!!session);
-  };
-
-  const fetchFeaturedCharity = async () => {
-    const { data } = await supabase
-      .from("charities")
-      .select("id, name, description, image_url")
-      .eq("is_featured", true)
-      .limit(1)
-      .single();
-    if (data) setFeaturedCharity(data);
-  };
+  const { ref: heroRef,    inView: heroIn    } = useInView(0.05);
+  const { ref: stepsRef,   inView: stepsIn   } = useInView(0.1);
+  const { ref: tiersRef,   inView: tiersIn   } = useInView(0.1);
+  const { ref: charityRef, inView: charityIn } = useInView(0.1);
+  const { ref: testiRef,   inView: testiIn   } = useInView(0.1);
 
   const steps = [
-    { step: "01", title: "Subscribe", description: "Choose monthly or yearly. A portion of every subscription goes directly to your chosen charity.", icon: "◈", color: "#a78bfa" },
-    { step: "02", title: "Submit Scores", description: "After each round, enter your Stableford score (1–45). Your 5 most recent scores enter you into the draw.", icon: "◎", color: "#4ade80" },
-    { step: "03", title: "Win & Give", description: "5 numbers drawn monthly. Match 3, 4, or 5 to win prizes — while your charity receives guaranteed support.", icon: "◉", color: "#facc15" },
+    { n:"01", title:"Subscribe",     body:"Choose monthly or yearly. A portion goes directly to your chosen charity.", color:"#a78bfa" },
+    { n:"02", title:"Submit Scores", body:"Enter your Stableford score (1–45) after each round. Keep your 5 most recent active.", color:"#4ade80" },
+    { n:"03", title:"Win & Give",    body:"5 numbers drawn monthly. Match 3, 4, or 5 to win — charity gets guaranteed support.", color:"#facc15" },
   ];
 
   const tiers = [
-    { match: "5 Numbers", share: "40%", label: "Jackpot", rolls: true, gradient: "from-yellow-500/20 to-amber-500/10", border: "border-yellow-500/40", badge: "bg-yellow-500/20 text-yellow-300", glow: "shadow-yellow-500/20" },
-    { match: "4 Numbers", share: "35%", label: "Second Prize", rolls: false, gradient: "from-purple-500/20 to-violet-500/10", border: "border-purple-500/40", badge: "bg-purple-500/20 text-purple-300", glow: "shadow-purple-500/20" },
-    { match: "3 Numbers", share: "25%", label: "Third Prize", rolls: false, gradient: "from-green-500/20 to-emerald-500/10", border: "border-green-500/40", badge: "bg-green-500/20 text-green-300", glow: "shadow-green-500/20" },
+    { match:"5 Numbers", pct:"40%", label:"Jackpot",      rolls:true,  c1:"rgba(250,204,21,.14)", c2:"rgba(250,204,21,.04)", border:"rgba(250,204,21,.4)", tc:"#fde047" },
+    { match:"4 Numbers", pct:"35%", label:"Second Prize", rolls:false, c1:"rgba(167,139,250,.14)", c2:"rgba(167,139,250,.04)", border:"rgba(167,139,250,.4)", tc:"#c4b5fd" },
+    { match:"3 Numbers", pct:"25%", label:"Third Prize",  rolls:false, c1:"rgba(74,222,128,.14)",  c2:"rgba(74,222,128,.04)",  border:"rgba(74,222,128,.4)",  tc:"#86efac" },
   ];
 
-  const { ref: heroRef, inView: heroIn } = useInView(0.1);
-  const { ref: stepsRef, inView: stepsIn } = useInView(0.1);
-  const { ref: tiersRef, inView: tiersIn } = useInView(0.1);
-  const { ref: charityRef, inView: charityIn } = useInView(0.1);
+  const testimonials = [
+    { q:"Won ₹4,200 in March. My charity got a cut too — that made it feel incredible.", n:"Rohan M.", loc:"Mumbai" },
+    { q:"Finally a golf platform that doesn't look like it was built in 2005. Obsessed.", n:"Priya S.", loc:"Bengaluru" },
+    { q:"Set up in 3 minutes. First draw I entered, I matched 3 numbers. Wild.", n:"Aditya K.", loc:"Delhi" },
+  ];
 
   return (
-    <div className="min-h-screen text-white overflow-x-hidden" style={{ background: "#080c14", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-
+    <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@700;800&display=swap');
-
-        * { box-sizing: border-box; }
-
-        .hero-glow {
-          position: absolute;
-          width: 600px; height: 600px;
-          border-radius: 50%;
-          filter: blur(120px);
-          pointer-events: none;
-        }
-
-        .grain {
-          position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.035;
-          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-          background-repeat: repeat;
-          background-size: 128px;
-        }
-
-        .fade-up {
-          opacity: 0; transform: translateY(40px);
-          transition: opacity 0.8s cubic-bezier(.16,1,.3,1), transform 0.8s cubic-bezier(.16,1,.3,1);
-        }
-        .fade-up.visible { opacity: 1; transform: translateY(0); }
-        .fade-up.d1 { transition-delay: 0.1s; }
-        .fade-up.d2 { transition-delay: 0.2s; }
-        .fade-up.d3 { transition-delay: 0.3s; }
-        .fade-up.d4 { transition-delay: 0.4s; }
-        .fade-up.d5 { transition-delay: 0.5s; }
-
-        .step-card {
-          transition: all 0.4s cubic-bezier(.16,1,.3,1);
-          cursor: default;
-        }
-        .step-card.active-step {
-          transform: translateY(-6px);
-          box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-        }
-
-        .tier-card {
-          transition: all 0.35s cubic-bezier(.16,1,.3,1);
-        }
-        .tier-card:hover {
-          transform: translateY(-8px);
-        }
-
-        .cta-btn {
-          position: relative; overflow: hidden;
-          transition: all 0.3s ease;
-        }
-        .cta-btn::before {
-          content: '';
-          position: absolute; inset: 0;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
-          transform: translateX(-100%);
-          transition: transform 0.5s ease;
-        }
-        .cta-btn:hover::before { transform: translateX(100%); }
-        .cta-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(74,222,128,0.35); }
-
-        .nav-link { position: relative; }
-        .nav-link::after {
-          content: ''; position: absolute; bottom: -2px; left: 0; width: 0; height: 1px;
-          background: #4ade80; transition: width 0.3s ease;
-        }
-        .nav-link:hover::after { width: 100%; }
-
-        .stat-card {
-          transition: transform 0.3s ease;
-        }
-        .stat-card:hover { transform: translateY(-4px); }
-
-        .charity-card {
-          transition: all 0.4s cubic-bezier(.16,1,.3,1);
-        }
-        .charity-card:hover { transform: scale(1.01); }
-
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-12px); }
-        }
-        @keyframes pulse-ring {
-          0% { transform: scale(0.8); opacity: 1; }
-          100% { transform: scale(2); opacity: 0; }
-        }
-        @keyframes scroll-indicator {
-          0%, 100% { transform: translateY(0); opacity: 1; }
-          50% { transform: translateY(6px); opacity: 0.4; }
-        }
-
-        .float { animation: float 6s ease-in-out infinite; }
-        .pulse-ring::before {
-          content: '';
-          position: absolute; inset: -4px; border-radius: 50%;
-          border: 2px solid #4ade80; opacity: 0;
-          animation: pulse-ring 2s ease-out infinite;
-        }
-        .scroll-dot { animation: scroll-indicator 1.5s ease-in-out infinite; }
-
-        .number-display {
-          font-family: 'Playfair Display', serif;
-          background: linear-gradient(135deg, #4ade80, #a78bfa);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
+        @keyframes hero-fade { from{opacity:0;transform:translateY(24px);} to{opacity:1;transform:translateY(0);} }
+        @keyframes float     { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+        @keyframes marquee   { from{transform:translateX(0);} to{transform:translateX(-50%);} }
+        @keyframes scroll-dot{ 0%,100%{transform:translateY(0);opacity:1;} 50%{transform:translateY(6px);opacity:.3;} }
+        @keyframes ring-pulse{ 0%{transform:scale(.9);opacity:1;} 100%{transform:scale(1.8);opacity:0;} }
+        @keyframes bar-grow  { from{width:0} to{width:100%} }
+        .h-fade  { animation: hero-fade .7s cubic-bezier(.16,1,.3,1) both; }
+        .h1{animation-delay:.05s} .h2{animation-delay:.13s} .h3{animation-delay:.21s} .h4{animation-delay:.29s} .h5{animation-delay:.37s}
+        .float   { animation: float 6s ease-in-out infinite; }
+        .f2d{animation-delay:-2s;} .f3d{animation-delay:-4s;}
+        .marquee { animation: marquee 22s linear infinite; }
+        .sdot    { animation: scroll-dot 1.8s ease-in-out infinite; }
+        .ring::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:1.5px solid rgba(74,222,128,.4);animation:ring-pulse 2.5s ease-out infinite;}
+        .fade-up{opacity:0;transform:translateY(28px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1);}
+        .fade-up.in{opacity:1;transform:translateY(0);}
+        .d1{transition-delay:.07s} .d2{transition-delay:.14s} .d3{transition-delay:.21s}
+        .step-card{transition:transform .4s cubic-bezier(.16,1,.3,1),box-shadow .4s,border-color .4s,background .4s;}
+        .tier-card{transition:transform .3s cubic-bezier(.16,1,.3,1),box-shadow .3s;}
+        .tier-card:hover{transform:translateY(-8px);}
+        .cta-glow{transition:transform .25s,box-shadow .25s;}
+        .cta-glow:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(74,222,128,.4);}
+        .nav-link-u{position:relative;} .nav-link-u::after{content:'';position:absolute;bottom:-2px;left:0;width:0;height:1px;background:#4ade80;transition:width .3s;}
+        .nav-link-u:hover::after{width:100%;}
+        .stat-card{transition:transform .3s;} .stat-card:hover{transform:translateY(-4px);}
+        .testi-card{transition:transform .3s,border-color .3s;} .testi-card:hover{transform:translateY(-4px);border-color:rgba(74,222,128,.25)!important;}
       `}</style>
 
-      <div className="grain" />
+      <div style={{ minHeight:"100vh", background:"#080c14", color:"#f1f5f9", overflowX:"hidden", fontFamily:"var(--font-dm-sans,DM Sans,sans-serif)" }}>
 
-      {/* Ambient glows */}
-      <div className="hero-glow" style={{ background: "radial-gradient(circle, rgba(74,222,128,0.12), transparent)", top: "-100px", left: "30%" }} />
-      <div className="hero-glow" style={{ background: "radial-gradient(circle, rgba(167,139,250,0.1), transparent)", top: "200px", right: "-100px" }} />
-
-      {/* NAVBAR */}
-      <nav className="relative z-50 flex justify-between items-center px-8 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center gap-3">
-          <div className="relative pulse-ring w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: "linear-gradient(135deg, #4ade80, #22c55e)", color: "#080c14" }}>G</div>
-          <span className="font-semibold text-lg tracking-tight">Golf Charity</span>
+        {/* Glow blobs */}
+        <div style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:0 }}>
+          <div style={{ position:"absolute", width:600, height:600, borderRadius:"50%", background:"radial-gradient(circle,rgba(74,222,128,.09),transparent)", filter:"blur(100px)", top:-120, left:"20%" }} />
+          <div style={{ position:"absolute", width:500, height:500, borderRadius:"50%", background:"radial-gradient(circle,rgba(167,139,250,.07),transparent)", filter:"blur(100px)", top:300, right:-100 }} />
+          <div style={{ position:"absolute", width:400, height:400, borderRadius:"50%", background:"radial-gradient(circle,rgba(250,204,21,.05),transparent)", filter:"blur(80px)", bottom:200, left:-60 }} />
         </div>
-        <div className="flex items-center gap-8">
-          <a href="/charities" className="nav-link text-sm text-gray-400 hover:text-white transition-colors">Charities</a>
-           <a
-      href="/leaderboard"
-      className="text-sm text-emerald-400 hover:text-emerald-300 transition font-medium"
-    >
-      🏆 Leaderboard
-    </a>
-          <a href={session ? "/dashboard" : "/auth"} className="cta-btn bg-green-500 hover:bg-green-400 px-5 py-2.5 rounded-xl text-sm font-semibold" style={{ color: "#080c14" }}>
-            {session ? "Dashboard →" : "Get Started →"}
+
+        {/* ── NAVBAR ── */}
+        <nav style={{ position:"sticky", top:0, zIndex:50, display:"flex", justifyContent:"space-between", alignItems:"center", padding:".95rem 2rem", borderBottom:"1px solid rgba(255,255,255,.06)", backdropFilter:"blur(14px)", background:"rgba(8,12,20,.82)" }}>
+          <a href="/" style={{ display:"flex", alignItems:"center", gap:".6rem", textDecoration:"none", color:"#f1f5f9" }}>
+            <div className="ring" style={{ position:"relative", width:34, height:34, borderRadius:"50%", background:"linear-gradient(135deg,#4ade80,#22c55e)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:".78rem", color:"#080c14" }}>G</div>
+            <span style={{ fontWeight:600, fontSize:"1rem", letterSpacing:"-.01em" }}>Golf Charity</span>
           </a>
-        </div>
-      </nav>
+          <div style={{ display:"flex", alignItems:"center", gap:"1.75rem" }}>
+            <a href="/charities" className="nav-link-u" style={{ fontSize:".85rem", color:"#94a3b8", textDecoration:"none", transition:"color .2s" }} onMouseEnter={e=>(e.currentTarget.style.color="#f1f5f9")} onMouseLeave={e=>(e.currentTarget.style.color="#94a3b8")}>Charities</a>
+            <a href="/leaderboard" className="nav-link-u" style={{ fontSize:".85rem", color:"#4ade80", textDecoration:"none" }}>🏆 Leaderboard</a>
+            <a href={session?"/dashboard":"/auth"} className="cta-glow" style={{ background:"#4ade80", color:"#080c14", fontWeight:700, fontSize:".85rem", padding:".55rem 1.25rem", borderRadius:9, textDecoration:"none" }}>
+              {session?"Dashboard →":"Get Started →"}
+            </a>
+          </div>
+        </nav>
 
-      {/* HERO */}
-      <section className="relative z-10 max-w-6xl mx-auto px-6 pt-24 pb-20 text-center" ref={heroRef}>
-        <div className={`fade-up ${heroIn ? "visible" : ""}`}>
-          <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full text-xs font-medium" style={{ background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.2)", color: "#4ade80" }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" style={{ animation: "pulse-ring 1.5s infinite" }} />
+        {/* ── HERO ── */}
+        <section style={{ position:"relative", zIndex:1, maxWidth:1100, margin:"0 auto", padding:"5rem 1.5rem 4rem", textAlign:"center" }} ref={heroRef}>
+          {/* Bg image tint */}
+          <div style={{ position:"absolute", inset:0, backgroundImage:"url('https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1400&q=60')", backgroundSize:"cover", backgroundPosition:"center", opacity:.05, borderRadius:"1.5rem", pointerEvents:"none" }} />
+
+          <div className="h-fade h1" style={{ display:"inline-flex", alignItems:"center", gap:".5rem", padding:".4rem 1rem", borderRadius:9999, background:"rgba(74,222,128,.08)", border:"1px solid rgba(74,222,128,.2)", color:"#4ade80", fontSize:".72rem", fontWeight:600, letterSpacing:".1em", textTransform:"uppercase", marginBottom:"1.5rem" }}>
+            <span style={{ width:6, height:6, borderRadius:"50%", background:"#4ade80", display:"inline-block", boxShadow:"0 0 8px #4ade80" }} />
             Play Golf · Win Prizes · Fund Charities
           </div>
-        </div>
 
-        <h1 className={`fade-up d1 ${heroIn ? "visible" : ""} text-6xl md:text-7xl font-bold leading-[1.05] mb-6 tracking-tight`} style={{ fontFamily: "'Playfair Display', serif" }}>
-          Every Round You Play<br />
-          <span style={{ background: "linear-gradient(135deg, #4ade80 0%, #a78bfa 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-            Makes a Difference
-          </span>
-        </h1>
+          <h1 className="h-fade h2" style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"clamp(2.8rem,6vw,4.5rem)", fontWeight:900, lineHeight:1.05, letterSpacing:"-.02em", marginBottom:"1.25rem" }}>
+            Every Round You Play<br />
+            <span style={{ background:"linear-gradient(135deg,#4ade80 0%,#a78bfa 100%)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text" }}>Makes a Difference</span>
+          </h1>
 
-        <p className={`fade-up d2 ${heroIn ? "visible" : ""} text-gray-400 text-xl max-w-2xl mx-auto mb-10 leading-relaxed`}>
-          Submit your golf scores, enter monthly prize draws, and automatically support a charity you care about — all in one platform.
-        </p>
+          <p className="h-fade h3" style={{ fontSize:"1.1rem", color:"#64748b", maxWidth:560, margin:"0 auto 2rem", lineHeight:1.7 }}>
+            Submit your golf scores, enter monthly prize draws, and automatically support a charity you care about — all in one platform.
+          </p>
 
-        <div className={`fade-up d3 ${heroIn ? "visible" : ""} flex flex-col sm:flex-row gap-4 justify-center mb-16`}>
-          <a href={session ? "/dashboard" : "/auth"} className="cta-btn inline-flex items-center justify-center gap-2 bg-green-500 px-8 py-4 rounded-xl text-base font-semibold" style={{ color: "#080c14" }}>
-            {session ? "Go to Dashboard" : "Start Playing — Free"}
-            <span>→</span>
-          </a>
-          <a href="/charities" className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-medium transition-all hover:bg-white/5" style={{ border: "1px solid rgba(255,255,255,0.12)", color: "#94a3b8" }}>
-            View Charities
-          </a>
-        </div>
-
-        {/* Floating score cards */}
-        <div className={`fade-up d4 ${heroIn ? "visible" : ""} relative flex justify-center items-center gap-4 flex-wrap`}>
-          {[
-            { score: 38, label: "This Month", delay: "0s" },
-            { score: 42, label: "Best Score", delay: "1s" },
-            { score: 31, label: "Last Round", delay: "2s" },
-          ].map((card) => (
-            <div key={card.label} className="float px-6 py-4 rounded-2xl text-center" style={{ animationDelay: card.delay, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(12px)" }}>
-              <div className="text-3xl font-bold number-display">{card.score}</div>
-              <div className="text-xs text-gray-500 mt-1">{card.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Scroll indicator */}
-        <div className="mt-16 flex flex-col items-center gap-2 opacity-30">
-          <span className="text-xs text-gray-500 uppercase tracking-widest">Scroll</span>
-          <div className="scroll-dot w-1 h-4 rounded-full bg-gray-500" />
-        </div>
-      </section>
-
-      {/* STATS */}
-      <section className="relative z-10 max-w-6xl mx-auto px-6 py-16" ref={statsRef}>
-        <div className="grid grid-cols-3 gap-6">
-          {[
-            { value: `₹${(poolCount / 1000).toFixed(1)}K`, label: "Prize Pool Distributed", icon: "🏆" },
-            { value: `₹${(donatedCount / 1000).toFixed(1)}K`, label: "Donated to Charities", icon: "💚" },
-            { value: `${membersCount.toLocaleString()}+`, label: "Active Members", icon: "⛳" },
-          ].map((stat) => (
-            <div key={stat.label} className="stat-card text-center p-8 rounded-2xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-              <div className="text-3xl mb-3">{stat.icon}</div>
-              <div className="text-4xl font-bold mb-2 number-display">{stat.value}</div>
-              <div className="text-sm text-gray-500">{stat.label}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* HOW IT WORKS */}
-      <section className="relative z-10 max-w-6xl mx-auto px-6 py-20" ref={stepsRef}>
-        <div className={`fade-up ${stepsIn ? "visible" : ""} text-center mb-16`}>
-          <p className="text-xs uppercase tracking-widest text-green-400 mb-3 font-medium">The Process</p>
-          <h2 className="text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>How It Works</h2>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-6">
-          {steps.map((item, i) => (
-            <div
-              key={item.step}
-              className={`fade-up d${i + 1} ${stepsIn ? "visible" : ""} step-card p-8 rounded-2xl ${activeStep === i ? "active-step" : ""}`}
-              style={{
-                background: activeStep === i ? `rgba(${item.color === "#a78bfa" ? "167,139,250" : item.color === "#4ade80" ? "74,222,128" : "250,204,21"},0.06)` : "rgba(255,255,255,0.03)",
-                border: `1px solid ${activeStep === i ? item.color + "40" : "rgba(255,255,255,0.06)"}`,
-              }}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <span className="text-4xl">{item.icon}</span>
-                <span className="text-xs font-mono opacity-30">{item.step}</span>
-              </div>
-              <h3 className="text-xl font-semibold mb-3" style={{ color: activeStep === i ? item.color : "white" }}>{item.title}</h3>
-              <p className="text-gray-400 text-sm leading-relaxed">{item.description}</p>
-
-              {/* Progress bar */}
-              <div className="mt-6 h-0.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-                <div className="h-full rounded-full transition-all duration-300" style={{ width: activeStep === i ? "100%" : "0%", background: item.color }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* PRIZE STRUCTURE */}
-      <section className="relative z-10 max-w-6xl mx-auto px-6 py-20" ref={tiersRef}>
-        <div className={`fade-up ${tiersIn ? "visible" : ""} text-center mb-16`}>
-          <p className="text-xs uppercase tracking-widest text-purple-400 mb-3 font-medium">Rewards</p>
-          <h2 className="text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>Prize Structure</h2>
-          <p className="text-gray-500 mt-3">Monthly prize pool split across three winner tiers</p>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-6">
-          {tiers.map((tier, i) => (
-            <div key={tier.match} className={`fade-up d${i + 1} ${tiersIn ? "visible" : ""} tier-card p-8 rounded-2xl bg-gradient-to-br ${tier.gradient} border ${tier.border} shadow-xl ${tier.glow}`}>
-              <div className="flex justify-between items-start mb-6">
-                <span className={`text-xs px-3 py-1 rounded-full font-medium ${tier.badge}`}>{tier.label}</span>
-                {tier.rolls && <span className="text-xs text-yellow-400/60 font-medium">Jackpot Rolls Over →</span>}
-              </div>
-              <div className="text-6xl font-bold mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>{tier.share}</div>
-              <div className="text-gray-400 text-sm mb-4">of monthly prize pool</div>
-              <div className="pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                <span className="text-white font-semibold">{tier.match}</span>
-                <span className="text-gray-500 text-sm"> matched to win</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* FEATURED CHARITY */}
-      {featuredCharity && (
-        <section className="relative z-10 max-w-6xl mx-auto px-6 py-20" ref={charityRef}>
-          <div className={`fade-up ${charityIn ? "visible" : ""} text-center mb-16`}>
-            <p className="text-xs uppercase tracking-widest text-yellow-400 mb-3 font-medium">Impact</p>
-            <h2 className="text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>Featured Charity</h2>
+          <div className="h-fade h4" style={{ display:"flex", gap:".75rem", justifyContent:"center", flexWrap:"wrap", marginBottom:"3rem" }}>
+            <a href={session?"/dashboard":"/auth"} className="cta-glow" style={{ background:"#4ade80", color:"#080c14", fontWeight:700, fontSize:".95rem", padding:".9rem 2rem", borderRadius:11, textDecoration:"none", display:"inline-flex", alignItems:"center", gap:".4rem" }}>
+              {session?"Go to Dashboard":"Start Playing — Free"} →
+            </a>
+            <a href="/charities" style={{ background:"rgba(255,255,255,.05)", border:"1px solid rgba(255,255,255,.1)", color:"#94a3b8", fontWeight:500, fontSize:".95rem", padding:".9rem 2rem", borderRadius:11, textDecoration:"none", transition:"all .2s" }} onMouseEnter={e=>{(e.currentTarget as HTMLAnchorElement).style.background="rgba(255,255,255,.09)";(e.currentTarget as HTMLAnchorElement).style.color="#f1f5f9";}} onMouseLeave={e=>{(e.currentTarget as HTMLAnchorElement).style.background="rgba(255,255,255,.05)";(e.currentTarget as HTMLAnchorElement).style.color="#94a3b8";}}>
+              View Charities
+            </a>
           </div>
 
-          <div className={`fade-up d1 ${charityIn ? "visible" : ""} charity-card p-1 rounded-3xl`} style={{ background: "linear-gradient(135deg, rgba(250,204,21,0.3), rgba(74,222,128,0.1), rgba(167,139,250,0.2))" }}>
-            <div className="p-8 md:p-12 rounded-3xl flex flex-col md:flex-row gap-10 items-center" style={{ background: "#0d1422" }}>
-              {featuredCharity.image_url ? (
-                <img src={featuredCharity.image_url} alt={featuredCharity.name} className="w-full md:w-56 h-56 object-cover rounded-2xl flex-shrink-0" />
-              ) : (
-                <div className="w-full md:w-56 h-56 rounded-2xl flex-shrink-0 flex items-center justify-center text-6xl" style={{ background: "rgba(250,204,21,0.08)", border: "1px solid rgba(250,204,21,0.15)" }}>💚</div>
-              )}
-              <div className="flex-1">
-                <span className="text-xs px-3 py-1 rounded-full font-medium mb-4 inline-block" style={{ background: "rgba(250,204,21,0.15)", color: "#fde047" }}>⭐ Spotlight Charity</span>
-                <h3 className="text-3xl font-bold mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>{featuredCharity.name}</h3>
-                <p className="text-gray-400 leading-relaxed mb-6 text-lg">{featuredCharity.description}</p>
-                <div className="flex gap-4">
-                  <a href={`/charities/${featuredCharity.id}`} className="cta-btn inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold" style={{ background: "rgba(250,204,21,0.15)", color: "#fde047", border: "1px solid rgba(250,204,21,0.3)" }}>
-                    Learn More →
-                  </a>
-                  <a href="/charities" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium text-gray-400 hover:text-white transition-colors">
-                    All Charities
-                  </a>
+          {/* Floating score cards */}
+          <div className="h-fade h5" style={{ display:"flex", justifyContent:"center", gap:"1rem", flexWrap:"wrap" }}>
+            {[{ s:42, l:"Best Score", c:"#facc15", d:"0s" },{ s:38, l:"This Month", c:"#4ade80", d:"-2s" },{ s:31, l:"Last Round", c:"#a78bfa", d:"-4s" }].map((card,i)=>(
+              <div key={i} className={`float ${i===1?"f2d":i===2?"f3d":""}`} style={{ animationDelay:card.d, background:"rgba(255,255,255,.045)", border:"1px solid rgba(255,255,255,.09)", borderRadius:14, padding:".9rem 1.4rem", backdropFilter:"blur(16px)", textAlign:"center", minWidth:100 }}>
+                <div style={{ fontSize:"1.8rem", fontWeight:800, fontFamily:"var(--font-playfair,serif)", color:card.c, lineHeight:1 }}>{card.s}</div>
+                <div style={{ fontSize:".7rem", color:"#475569", marginTop:4 }}>{card.l}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Scroll indicator */}
+          <div style={{ marginTop:"2.5rem", display:"flex", flexDirection:"column", alignItems:"center", gap:6, opacity:.25 }}>
+            <span style={{ fontSize:".65rem", letterSpacing:".12em", textTransform:"uppercase", color:"#64748b" }}>Scroll</span>
+            <div className="sdot" style={{ width:3, height:16, borderRadius:9999, background:"#475569" }} />
+          </div>
+        </section>
+
+        {/* ── MARQUEE ── */}
+        <div style={{ position:"relative", zIndex:1, overflow:"hidden", borderTop:"1px solid rgba(255,255,255,.05)", borderBottom:"1px solid rgba(255,255,255,.05)", background:"rgba(74,222,128,.025)", padding:".6rem 0" }}>
+          <div className="marquee" style={{ display:"flex", width:"max-content", whiteSpace:"nowrap" }}>
+            {Array(8).fill("Play · Win · Give · Repeat · Golf Charity · ").map((t,i)=>(
+              <span key={i} style={{ fontSize:".72rem", fontWeight:600, letterSpacing:".1em", color:"rgba(74,222,128,.45)", padding:"0 2rem" }}>{t}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* ── STATS ── */}
+        <section style={{ position:"relative", zIndex:1, maxWidth:1100, margin:"0 auto", padding:"3.5rem 1.5rem" }} ref={statsRef}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"1.25rem" }}>
+            {[
+              { v:`₹${(pool/1000).toFixed(1)}K`,    l:"Prize Pool Distributed", icon:"🏆", accent:"#facc15" },
+              { v:`₹${(donated/1000).toFixed(1)}K`, l:"Donated to Charities",   icon:"💚", accent:"#4ade80" },
+              { v:`${members.toLocaleString()}+`,    l:"Active Members",          icon:"⛳", accent:"#a78bfa" },
+            ].map(stat=>(
+              <div key={stat.l} className="stat-card" style={{ background:"rgba(255,255,255,.03)", border:"1px solid rgba(255,255,255,.07)", borderRadius:14, padding:"1.75rem 1.5rem", textAlign:"center", borderTop:`2px solid ${stat.accent}44` }}>
+                <div style={{ fontSize:"1.75rem", marginBottom:".5rem" }}>{stat.icon}</div>
+                <div style={{ fontSize:"2rem", fontWeight:800, fontFamily:"var(--font-playfair,serif)", color:stat.accent, lineHeight:1.1, marginBottom:".4rem" }}>{stat.v}</div>
+                <div style={{ fontSize:".78rem", color:"#475569" }}>{stat.l}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── HOW IT WORKS ── */}
+        <section style={{ position:"relative", zIndex:1, maxWidth:1100, margin:"0 auto", padding:"3rem 1.5rem" }} ref={stepsRef}>
+          <div className={`fade-up ${stepsIn?"in":""}`} style={{ textAlign:"center", marginBottom:"2.5rem" }}>
+            <p style={{ fontSize:".7rem", fontWeight:600, letterSpacing:".12em", textTransform:"uppercase", color:"#4ade80", marginBottom:".5rem" }}>The Process</p>
+            <h2 style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"2.2rem", fontWeight:800 }}>How It Works</h2>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:"1.25rem" }}>
+            {steps.map((item,i)=>(
+              <div key={i} className={`fade-up d${i+1} ${stepsIn?"in":""} step-card`} style={{ padding:"1.75rem", borderRadius:14, background: activeStep===i?`${item.color}0d`:"rgba(255,255,255,.03)", border:`1px solid ${activeStep===i?item.color+"55":"rgba(255,255,255,.07)"}`, transform: activeStep===i?"translateY(-5px)":"translateY(0)", boxShadow: activeStep===i?"0 16px 50px rgba(0,0,0,.3)":"none" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.25rem" }}>
+                  <div style={{ width:36, height:36, borderRadius:9, background:`${item.color}18`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1rem", fontWeight:800, color:item.color, fontFamily:"var(--font-playfair,serif)" }}>{item.n}</div>
+                  {activeStep===i && <div style={{ width:6, height:6, borderRadius:"50%", background:item.color, boxShadow:`0 0 10px ${item.color}` }} />}
+                </div>
+                <h3 style={{ fontSize:"1.1rem", fontWeight:700, color: activeStep===i?item.color:"#f1f5f9", marginBottom:".6rem" }}>{item.title}</h3>
+                <p style={{ fontSize:".83rem", color:"#64748b", lineHeight:1.65 }}>{item.body}</p>
+                <div style={{ marginTop:"1.25rem", height:2, borderRadius:9999, background:"rgba(255,255,255,.06)", overflow:"hidden" }}>
+                  <div style={{ height:"100%", borderRadius:9999, background:item.color, width: activeStep===i?"100%":"0%", transition:"width .7s cubic-bezier(.16,1,.3,1)" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── PRIZE TIERS ── */}
+        <section style={{ position:"relative", zIndex:1, maxWidth:1100, margin:"0 auto", padding:"3rem 1.5rem" }} ref={tiersRef}>
+          <div className={`fade-up ${tiersIn?"in":""}`} style={{ textAlign:"center", marginBottom:"2.5rem" }}>
+            <p style={{ fontSize:".7rem", fontWeight:600, letterSpacing:".12em", textTransform:"uppercase", color:"#a78bfa", marginBottom:".5rem" }}>Rewards</p>
+            <h2 style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"2.2rem", fontWeight:800 }}>Prize Structure</h2>
+            <p style={{ color:"#475569", marginTop:".4rem", fontSize:".875rem" }}>Monthly pool split across three winner tiers</p>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))", gap:"1.25rem" }}>
+            {tiers.map((tier,i)=>(
+              <div key={i} className={`fade-up d${i+1} ${tiersIn?"in":""} tier-card`} style={{ padding:"1.75rem", borderRadius:14, background:`linear-gradient(135deg,${tier.c1},${tier.c2})`, border:`1px solid ${tier.border}`, boxShadow:`0 6px 30px ${tier.c1}` }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.25rem" }}>
+                  <span style={{ background:`${tier.c1}`, border:`1px solid ${tier.border}`, color:tier.tc, fontSize:".72rem", fontWeight:600, padding:".2rem .7rem", borderRadius:9999 }}>{tier.label}</span>
+                  {tier.rolls && <span style={{ fontSize:".68rem", color:"rgba(250,204,21,.6)", fontWeight:500 }}>Rolls Over →</span>}
+                </div>
+                <div style={{ fontSize:"3.5rem", fontWeight:900, fontFamily:"var(--font-playfair,serif)", lineHeight:1, marginBottom:".4rem" }}>{tier.pct}</div>
+                <div style={{ fontSize:".78rem", color:"#475569", marginBottom:"1.25rem" }}>of monthly prize pool</div>
+                <div style={{ paddingTop:"1rem", borderTop:"1px solid rgba(255,255,255,.06)" }}>
+                  <span style={{ fontWeight:700, color:"#f1f5f9" }}>{tier.match}</span>
+                  <span style={{ color:"#475569", fontSize:".83rem" }}> matched to win</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── FEATURED CHARITY ── */}
+        {featuredCharity && (
+          <section style={{ position:"relative", zIndex:1, maxWidth:1100, margin:"0 auto", padding:"3rem 1.5rem" }} ref={charityRef}>
+            <div className={`fade-up ${charityIn?"in":""}`} style={{ textAlign:"center", marginBottom:"2rem" }}>
+              <p style={{ fontSize:".7rem", fontWeight:600, letterSpacing:".12em", textTransform:"uppercase", color:"#facc15", marginBottom:".5rem" }}>Impact</p>
+              <h2 style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"2.2rem", fontWeight:800 }}>Featured Charity</h2>
+            </div>
+            <div className={`fade-up d1 ${charityIn?"in":""}`} style={{ padding:1, borderRadius:20, background:"linear-gradient(135deg,rgba(250,204,21,.4),rgba(74,222,128,.2),rgba(167,139,250,.3))" }}>
+              <div style={{ borderRadius:19, background:"#0d1422", padding:"2rem", display:"flex", gap:"2rem", alignItems:"center", flexWrap:"wrap" }}>
+                {featuredCharity.image_url ? (
+                  <img src={featuredCharity.image_url} alt={featuredCharity.name} style={{ width:180, height:180, objectFit:"cover", borderRadius:14, flexShrink:0 }} />
+                ) : (
+                  <div style={{ width:180, height:180, borderRadius:14, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"3rem", background:"rgba(250,204,21,.07)", border:"1px solid rgba(250,204,21,.15)" }}>💚</div>
+                )}
+                <div style={{ flex:1 }}>
+                  <span style={{ background:"rgba(250,204,21,.12)", border:"1px solid rgba(250,204,21,.25)", color:"#fde047", fontSize:".72rem", fontWeight:600, padding:".2rem .75rem", borderRadius:9999, display:"inline-block", marginBottom:".75rem" }}>⭐ Spotlight Charity</span>
+                  <h3 style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"1.8rem", fontWeight:800, marginBottom:".75rem" }}>{featuredCharity.name}</h3>
+                  <p style={{ color:"#64748b", lineHeight:1.7, marginBottom:"1.25rem", fontSize:".9rem" }}>{featuredCharity.description}</p>
+                  <div style={{ display:"flex", gap:".75rem", flexWrap:"wrap" }}>
+                    <a href={`/charities/${featuredCharity.id}`} className="cta-glow" style={{ background:"rgba(250,204,21,.15)", border:"1px solid rgba(250,204,21,.3)", color:"#fde047", fontSize:".85rem", fontWeight:600, padding:".6rem 1.25rem", borderRadius:9, textDecoration:"none" }}>Learn More →</a>
+                    <a href="/charities" style={{ color:"#64748b", fontSize:".85rem", padding:".6rem 1.25rem", textDecoration:"none", transition:"color .2s" }} onMouseEnter={e=>(e.currentTarget.style.color="#f1f5f9")} onMouseLeave={e=>(e.currentTarget.style.color="#64748b")}>All Charities →</a>
+                  </div>
                 </div>
               </div>
             </div>
+          </section>
+        )}
+
+        {/* ── TESTIMONIALS ── */}
+        <section style={{ position:"relative", zIndex:1, maxWidth:1100, margin:"0 auto", padding:"3rem 1.5rem" }} ref={testiRef}>
+          <div className={`fade-up ${testiIn?"in":""}`} style={{ textAlign:"center", marginBottom:"2rem" }}>
+            <p style={{ fontSize:".7rem", fontWeight:600, letterSpacing:".12em", textTransform:"uppercase", color:"#4ade80", marginBottom:".5rem" }}>Community</p>
+            <h2 style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"2.2rem", fontWeight:800 }}>What Members Say</h2>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))", gap:"1.25rem" }}>
+            {testimonials.map((t,i)=>(
+              <div key={i} className={`fade-up d${i+1} ${testiIn?"in":""} testi-card`} style={{ background:"rgba(255,255,255,.03)", border:"1px solid rgba(255,255,255,.07)", borderRadius:14, padding:"1.5rem" }}>
+                <div style={{ fontSize:"1.5rem", color:"rgba(74,222,128,.5)", marginBottom:".75rem" }}>"</div>
+                <p style={{ color:"#94a3b8", fontSize:".875rem", lineHeight:1.7, marginBottom:"1.25rem" }}>{t.q}</p>
+                <div style={{ display:"flex", alignItems:"center", gap:".75rem", paddingTop:"1rem", borderTop:"1px solid rgba(255,255,255,.06)" }}>
+                  <div style={{ width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,#4ade80,#a78bfa)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:".78rem", color:"#080c14" }}>{t.n[0]}</div>
+                  <div>
+                    <div style={{ fontSize:".85rem", fontWeight:600 }}>{t.n}</div>
+                    <div style={{ fontSize:".72rem", color:"#374151" }}>{t.loc}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
-      )}
 
-      {/* FINAL CTA */}
-      <section className="relative z-10 max-w-6xl mx-auto px-6 py-24 text-center">
-        <div className="relative p-16 rounded-3xl overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(74,222,128,0.08), rgba(167,139,250,0.08))", border: "1px solid rgba(74,222,128,0.15)" }}>
-          <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at center, rgba(74,222,128,0.06) 0%, transparent 70%)" }} />
-          <p className="relative text-xs uppercase tracking-widest text-green-400 mb-4 font-medium">Join the Community</p>
-          <h2 className="relative text-5xl font-bold mb-5" style={{ fontFamily: "'Playfair Display', serif" }}>Ready to Play?</h2>
-          <p className="relative text-gray-400 text-lg mb-10 max-w-xl mx-auto leading-relaxed">
-            Join golfers across the country making an impact with every round they play.
-          </p>
-          <a href={session ? "/dashboard" : "/auth"} className="cta-btn relative inline-flex items-center gap-3 bg-green-500 px-10 py-4 rounded-xl text-base font-bold" style={{ color: "#080c14" }}>
-            {session ? "Go to Dashboard" : "Join Now — It's Free to Start"}
-            <span>→</span>
-          </a>
-          <p className="relative text-gray-600 text-xs mt-6">No commitment required · Cancel anytime</p>
-        </div>
-      </section>
+        {/* ── FINAL CTA ── */}
+        <section style={{ position:"relative", zIndex:1, maxWidth:1100, margin:"0 auto", padding:"3rem 1.5rem 5rem" }}>
+          <div style={{ padding:"3.5rem 2rem", borderRadius:20, background:"linear-gradient(135deg,rgba(74,222,128,.07),rgba(167,139,250,.06))", border:"1px solid rgba(74,222,128,.15)", textAlign:"center", position:"relative", overflow:"hidden" }}>
+            <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 50% 0%,rgba(74,222,128,.07),transparent 60%)", pointerEvents:"none" }} />
+            <p style={{ fontSize:".7rem", fontWeight:600, letterSpacing:".12em", textTransform:"uppercase", color:"#4ade80", marginBottom:".75rem" }}>Join the Community</p>
+            <h2 style={{ fontFamily:"var(--font-playfair,serif)", fontSize:"2.5rem", fontWeight:800, marginBottom:"1rem" }}>Ready to Play?</h2>
+            <p style={{ color:"#64748b", fontSize:"1rem", marginBottom:"2rem", maxWidth:480, margin:"0 auto 2rem" }}>Join golfers across the country making an impact with every round they play.</p>
+            <a href={session?"/dashboard":"/auth"} className="cta-glow" style={{ background:"#4ade80", color:"#080c14", fontWeight:700, fontSize:"1rem", padding:"1rem 2.5rem", borderRadius:12, textDecoration:"none", display:"inline-flex", alignItems:"center", gap:".4rem" }}>
+              {session?"Go to Dashboard":"Join Now — It's Free"} →
+            </a>
+            <p style={{ fontSize:".72rem", color:"#374151", marginTop:"1rem" }}>No commitment · Cancel anytime</p>
+          </div>
+        </section>
 
-      {/* FOOTER */}
-      <footer className="relative z-10 px-8 py-8 flex flex-col md:flex-row justify-between items-center gap-4 text-gray-600 text-sm" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: "rgba(74,222,128,0.2)", color: "#4ade80" }}>G</div>
-          <span>© 2026 Golf Charity. All rights reserved.</span>
-        </div>
-        <div className="flex gap-8">
-          <a href="/charities" className="hover:text-white transition-colors">Charities</a>
-          <a href="/auth" className="hover:text-white transition-colors">Sign In</a>
-          <a href="/dashboard" className="hover:text-white transition-colors">Dashboard</a>
-        </div>
-      </footer>
-    </div>
+        {/* ── FOOTER ── */}
+        <footer style={{ position:"relative", zIndex:1, borderTop:"1px solid rgba(255,255,255,.05)", padding:"1.5rem 2rem", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:"1rem" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:".5rem", color:"#374151", fontSize:".8rem" }}>
+            <div style={{ width:22, height:22, borderRadius:"50%", background:"rgba(74,222,128,.2)", color:"#4ade80", display:"flex", alignItems:"center", justifyContent:"center", fontSize:".65rem", fontWeight:800 }}>G</div>
+            © 2026 Golf Charity. All rights reserved.
+          </div>
+          <div style={{ display:"flex", gap:"1.5rem" }}>
+            {[["Charities","/charities"],["Sign In","/auth"],["Dashboard","/dashboard"]].map(([l,h])=>(
+              <a key={l} href={h} style={{ color:"#374151", fontSize:".8rem", textDecoration:"none", transition:"color .2s" }} onMouseEnter={e=>(e.currentTarget.style.color="#f1f5f9")} onMouseLeave={e=>(e.currentTarget.style.color="#374151")}>{l}</a>
+            ))}
+          </div>
+        </footer>
+      </div>
+    </>
   );
 }
