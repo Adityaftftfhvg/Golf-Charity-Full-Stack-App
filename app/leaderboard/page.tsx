@@ -107,18 +107,7 @@ export default function Leaderboard() {
           <div style={{ position:"absolute", width:350, height:350, borderRadius:"50%", background:"radial-gradient(circle,rgba(74,222,128,.07),transparent)", filter:"blur(80px)", bottom:100, right:-40 }} />
         </div>
 
-        {/* ── NAVBAR ── */}
-        <nav style={{ position:"sticky", top:0, zIndex:50, display:"flex", justifyContent:"space-between", alignItems:"center", padding:".9rem 2rem", borderBottom:"1px solid rgba(255,255,255,.06)", backdropFilter:"blur(14px)", background:"rgba(8,12,20,.82)" }}>
-          <a href="/" style={{ display:"flex", alignItems:"center", gap:".55rem", textDecoration:"none", color:"#f1f5f9" }}>
-            <div className="ring-dot" style={{ position:"relative", width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,#4ade80,#22c55e)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:".75rem", color:"#080c14" }}>G</div>
-            <span style={{ fontWeight:600, fontSize:"1rem" }}>Golf Charity</span>
-          </a>
-          <div style={{ display:"flex", alignItems:"center", gap:"1.5rem" }}>
-            <a href="/dashboard" className="nav-lu" style={{ fontSize:".85rem", color:"#94a3b8", textDecoration:"none" }}>Dashboard</a>
-            <a href="/charities" className="nav-lu" style={{ fontSize:".85rem", color:"#94a3b8", textDecoration:"none" }}>Charities</a>
-            <a href="/auth" style={{ background:"#4ade80", color:"#080c14", fontWeight:700, fontSize:".83rem", padding:".5rem 1.1rem", borderRadius:9, textDecoration:"none" }}>Get Started →</a>
-          </div>
-        </nav>
+       
 
         <div style={{ position:"relative", zIndex:1, maxWidth:700, margin:"0 auto", padding:"3rem 1.5rem" }}>
 

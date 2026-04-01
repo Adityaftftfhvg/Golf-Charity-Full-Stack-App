@@ -115,20 +115,7 @@ export default function HomePage() {
           <div style={{ position:"absolute", width:400, height:400, borderRadius:"50%", background:"radial-gradient(circle,rgba(250,204,21,.05),transparent)", filter:"blur(80px)", bottom:200, left:-60 }} />
         </div>
 
-        {/* ── NAVBAR ── */}
-        <nav style={{ position:"sticky", top:0, zIndex:50, display:"flex", justifyContent:"space-between", alignItems:"center", padding:".95rem 2rem", borderBottom:"1px solid rgba(255,255,255,.06)", backdropFilter:"blur(14px)", background:"rgba(8,12,20,.82)" }}>
-          <a href="/" style={{ display:"flex", alignItems:"center", gap:".6rem", textDecoration:"none", color:"#f1f5f9" }}>
-            <div className="ring" style={{ position:"relative", width:34, height:34, borderRadius:"50%", background:"linear-gradient(135deg,#4ade80,#22c55e)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:".78rem", color:"#080c14" }}>G</div>
-            <span style={{ fontWeight:600, fontSize:"1rem", letterSpacing:"-.01em" }}>Golf Charity</span>
-          </a>
-          <div style={{ display:"flex", alignItems:"center", gap:"1.75rem" }}>
-            <a href="/charities" className="nav-link-u" style={{ fontSize:".85rem", color:"#94a3b8", textDecoration:"none", transition:"color .2s" }} onMouseEnter={e=>(e.currentTarget.style.color="#f1f5f9")} onMouseLeave={e=>(e.currentTarget.style.color="#94a3b8")}>Charities</a>
-            <a href="/leaderboard" className="nav-link-u" style={{ fontSize:".85rem", color:"#4ade80", textDecoration:"none" }}>🏆 Leaderboard</a>
-            <a href={session?"/dashboard":"/auth"} className="cta-glow" style={{ background:"#4ade80", color:"#080c14", fontWeight:700, fontSize:".85rem", padding:".55rem 1.25rem", borderRadius:9, textDecoration:"none" }}>
-              {session?"Dashboard →":"Get Started →"}
-            </a>
-          </div>
-        </nav>
+      
 
         {/* ── HERO ── */}
         <section style={{ position:"relative", zIndex:1, maxWidth:1100, margin:"0 auto", padding:"5rem 1.5rem 4rem", textAlign:"center" }} ref={heroRef}>

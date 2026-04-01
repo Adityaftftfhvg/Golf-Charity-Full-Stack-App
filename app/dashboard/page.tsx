@@ -138,18 +138,7 @@ export default function Dashboard() {
           <div style={{ position:"absolute", width:400, height:400, borderRadius:"50%", background:"radial-gradient(circle,rgba(167,139,250,.06),transparent)", filter:"blur(100px)", top:300, right:-60 }} />
         </div>
 
-        {/* ── NAVBAR ── */}
-        <nav style={{ position:"sticky", top:0, zIndex:50, display:"flex", justifyContent:"space-between", alignItems:"center", padding:".9rem 2rem", borderBottom:"1px solid rgba(255,255,255,.06)", backdropFilter:"blur(14px)", background:"rgba(8,12,20,.82)" }}>
-          <a href="/" style={{ display:"flex", alignItems:"center", gap:".55rem", textDecoration:"none", color:"#f1f5f9" }}>
-            <div className="ring-dot" style={{ position:"relative", width:32, height:32, borderRadius:"50%", background:"linear-gradient(135deg,#4ade80,#22c55e)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:".75rem", color:"#080c14" }}>G</div>
-            <span style={{ fontWeight:600, fontSize:"1rem" }}>Golf Charity</span>
-          </a>
-          <div style={{ display:"flex", alignItems:"center", gap:"1.5rem" }}>
-            <a href="/leaderboard" className="nav-lu" style={{ fontSize:".85rem", color:"#4ade80", textDecoration:"none" }}>🏆 Leaderboard</a>
-            <a href="/charities"   className="nav-lu" style={{ fontSize:".85rem", color:"#94a3b8", textDecoration:"none" }}>Charities</a>
-            <button onClick={async()=>{ await supabase.auth.signOut(); window.location.href="/auth"; }} style={{ background:"rgba(255,255,255,.05)", border:"1px solid rgba(255,255,255,.1)", color:"#94a3b8", fontSize:".82rem", padding:".45rem 1rem", borderRadius:8, cursor:"pointer", transition:"all .2s" }} onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.color="#f1f5f9";}} onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.color="#94a3b8";}}>Sign out</button>
-          </div>
-        </nav>
+       
 
         {/* ── CONTENT ── */}
         <div style={{ position:"relative", zIndex:1, maxWidth:1100, margin:"0 auto", padding:"2rem 1.5rem", display:"flex", flexDirection:"column", gap:"1.25rem" }}>

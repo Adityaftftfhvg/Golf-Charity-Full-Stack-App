@@ -44,13 +44,14 @@ export default function Navbar() {
     };
   }, []);
 
-  const isActive = (href: string) => pathname === href;
+  const isActive = (href: string) => pathname === href || (href !== "/" && pathname.startsWith(href));
 
   const links = [
-    { href: "/charities",   label: "Charities",   icon: "💚" },
-    { href: "/leaderboard", label: "Leaderboard",  icon: "🏆" },
-    { href: "/dashboard",   label: "Dashboard",    icon: "⚡" },
+    { href: "/charities",     label: "Charities",    icon: "💚" },
+    { href: "/dashboard",     label: "Dashboard",    icon: "⚡" },
+    { href: "/leaderboard",   label: "Leaderboard",  icon: "🏆" },
     { href: "/#how-it-works", label: "How It Works", icon: "🎯" },
+    { href: "/draw",          label: "Monthly Draw", icon: "🎰" },
   ];
 
   const handleSignOut = async () => {
@@ -62,17 +63,46 @@ export default function Navbar() {
     <>
       <style>{`
         @keyframes ring-pulse { 0%{transform:scale(.9);opacity:1} 100%{transform:scale(1.8);opacity:0} }
-        @keyframes nav-slide-down { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes nav-slide-down { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes admin-glow { 0%,100%{box-shadow:0 0 0 rgba(248,113,113,0)} 50%{box-shadow:0 0 18px rgba(248,113,113,.25)} }
+        @keyframes shimmer-pass { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+
+        .gc-navbar {
+          position: fixed !important;
+          top: 0;
+          left: 0;
+          right: 0;
+          z-index: 9999;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: .88rem 2rem;
+          transition: background .35s,border-color .35s,box-shadow .35s,backdrop-filter .35s;
+        }
+        .gc-navbar.top {
+          background: rgba(8,12,20,.78);
+          border-bottom: 1px solid rgba(255,255,255,.05);
+          backdrop-filter: blur(14px);
+        }
+        .gc-navbar.scrolled {
+          background: rgba(4,7,15,.97);
+          border-bottom: 1px solid rgba(74,222,128,.1);
+          box-shadow: 0 4px 40px rgba(0,0,0,.55), 0 1px 0 rgba(74,222,128,.05);
+          backdrop-filter: blur(28px);
+        }
+
         .gc-nav-link {
           position: relative;
-          font-size: .85rem;
-          color: #94a3b8;
+          font-size: .84rem;
+          color: #7c8fa6;
           text-decoration: none;
-          transition: color .2s ease;
+          transition: color .22s;
           display: flex;
           align-items: center;
-          gap: .3rem;
-          padding: .3rem 0;
+          gap: .28rem;
+          padding: .35rem 0;
+          font-weight: 500;
+          white-space: nowrap;
         }
         .gc-nav-link::after {
           content: '';
@@ -80,125 +110,135 @@ export default function Navbar() {
           bottom: -2px;
           left: 0;
           width: 0;
-          height: 1.5px;
-          background: #4ade80;
-          transition: width .3s cubic-bezier(.16,1,.3,1);
+          height: 2px;
+          background: linear-gradient(90deg,#4ade80,#22d3ee);
+          transition: width .32s cubic-bezier(.16,1,.3,1);
           border-radius: 9999px;
         }
-        .gc-nav-link:hover { color: #f1f5f9; }
+        .gc-nav-link:hover { color: #e2e8f0; }
         .gc-nav-link:hover::after { width: 100%; }
         .gc-nav-link.active { color: #4ade80; }
-        .gc-nav-link.active::after { width: 100%; }
-        .nav-logo-ring::after {
+        .gc-nav-link.active::after { width: 100%; background: linear-gradient(90deg,#4ade80,#22c55e); }
+
+        .nav-logo-wrap {
+          position: relative;
+          width: 38px;
+          height: 38px;
+          border-radius: 50%;
+          background: linear-gradient(135deg,#4ade80,#22c55e);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 900;
+          font-size: .75rem;
+          color: #050a0e;
+          flex-shrink: 0;
+          transition: transform .3s cubic-bezier(.16,1,.3,1);
+          cursor: pointer;
+        }
+        .nav-logo-wrap:hover { transform: rotate(20deg) scale(1.1); }
+        .nav-logo-wrap::before {
           content: '';
           position: absolute;
-          inset: -3px;
+          inset: -4px;
           border-radius: 50%;
-          border: 1.5px solid rgba(74,222,128,.4);
+          border: 1.5px solid rgba(74,222,128,.38);
           animation: ring-pulse 2.5s ease-out infinite;
         }
-        .mobile-menu {
-          animation: nav-slide-down .2s cubic-bezier(.16,1,.3,1) both;
-        }
+
         .nav-cta {
           position: relative;
           overflow: hidden;
-          background: #4ade80;
-          color: #080c14;
-          font-weight: 700;
-          font-size: .85rem;
-          padding: .5rem 1.25rem;
-          border-radius: 9px;
+          background: linear-gradient(135deg,#4ade80,#22c55e);
+          color: #050a0e;
+          font-weight: 800;
+          font-size: .84rem;
+          padding: .54rem 1.3rem;
+          border-radius: 10px;
           text-decoration: none;
-          transition: transform .2s, box-shadow .2s;
+          transition: transform .2s,box-shadow .25s;
           display: inline-flex;
           align-items: center;
-          gap: .3rem;
+          gap: .35rem;
+          letter-spacing: -.01em;
         }
         .nav-cta::before {
           content: '';
           position: absolute;
           inset: 0;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,.2), transparent);
+          background: linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);
           transform: translateX(-100%);
-          transition: transform .5s ease;
         }
-        .nav-cta:hover::before { transform: translateX(100%); }
-        .nav-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(74,222,128,.4); }
+        .nav-cta:hover::before { animation: shimmer-pass .55s ease forwards; }
+        .nav-cta:hover { transform: translateY(-2px); box-shadow: 0 10px 36px rgba(74,222,128,.5); }
+
         .admin-badge {
-          font-size: .72rem;
-          font-weight: 600;
-          padding: .2rem .6rem;
+          font-size: .73rem;
+          font-weight: 700;
+          padding: .24rem .75rem;
           border-radius: 9999px;
-          background: rgba(248,113,113,.12);
-          border: 1px solid rgba(248,113,113,.3);
+          background: rgba(248,113,113,.1);
+          border: 1px solid rgba(248,113,113,.32);
           color: #f87171;
           text-decoration: none;
-          transition: all .2s;
+          transition: all .22s;
+          display: flex;
+          align-items: center;
+          gap: .3rem;
+          animation: admin-glow 3s ease infinite;
         }
-        .admin-badge:hover { background: rgba(248,113,113,.22); transform: translateY(-1px); }
-        .hamburger span {
-          display: block;
-          width: 20px;
-          height: 2px;
-          background: #94a3b8;
-          border-radius: 9999px;
-          transition: all .3s;
+        .admin-badge:hover { background: rgba(248,113,113,.22); transform: translateY(-1px); box-shadow: 0 6px 22px rgba(248,113,113,.3); }
+
+        .signout-btn {
+          background: rgba(255,255,255,.05);
+          border: 1px solid rgba(255,255,255,.09);
+          color: #64748b;
+          font-size: .82rem;
+          padding: .5rem 1rem;
+          border-radius: 9px;
+          cursor: pointer;
+          transition: all .22s;
+          font-family: inherit;
+          font-weight: 500;
         }
-        .hamburger.open span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
-        .hamburger.open span:nth-child(2) { opacity: 0; }
-        .hamburger.open span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+        .signout-btn:hover { color: #f1f5f9; border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.09); }
+
+        .hamburger { display: none; flex-direction: column; gap: 5px; background: none; border: none; cursor: pointer; padding: .3rem; }
+        .hamburger span { display: block; width: 22px; height: 2px; background: #7c8fa6; border-radius: 9999px; transition: all .32s cubic-bezier(.16,1,.3,1); }
+        .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); background: #4ade80; }
+        .hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+        .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); background: #4ade80; }
+
+        .mobile-menu { animation: nav-slide-down .25s cubic-bezier(.16,1,.3,1) both; }
+
+        @media (max-width: 860px) {
+          .gc-desktop-links { display: none !important; }
+          .hamburger { display: flex !important; }
+        }
       `}</style>
 
-      <nav
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: ".9rem 2rem",
-          borderBottom: `1px solid ${scrolled ? "rgba(255,255,255,.08)" : "rgba(255,255,255,.06)"}`,
-          backdropFilter: "blur(16px)",
-          background: scrolled ? "rgba(8,12,20,.95)" : "rgba(8,12,20,.82)",
-          transition: "background .3s, border-color .3s, box-shadow .3s",
-          boxShadow: scrolled ? "0 4px 30px rgba(0,0,0,.3)" : "none",
-        }}
-      >
+      {/* Fixed navbar height spacer */}
+      <div style={{ height: 66 }} aria-hidden="true" />
+
+      <nav className={`gc-navbar ${scrolled ? "scrolled" : "top"}`}>
         {/* Logo */}
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: ".6rem", textDecoration: "none", color: "#f1f5f9" }}>
-          <div
-            className="nav-logo-ring"
-            style={{
-              position: "relative",
-              width: 34,
-              height: 34,
-              borderRadius: "50%",
-              background: "linear-gradient(135deg,#4ade80,#22c55e)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 800,
-              fontSize: ".78rem",
-              color: "#080c14",
-              flexShrink: 0,
-            }}
-          >
-            G
+        <Link href="/" style={{ display: "flex", alignItems: "center", gap: ".65rem", textDecoration: "none", color: "#f1f5f9" }}>
+          <div className="nav-logo-wrap">GC</div>
+          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
+            <span style={{ fontWeight: 800, fontSize: ".93rem", letterSpacing: "-.02em" }}>Golf Charity</span>
+            <span style={{ fontSize: ".58rem", color: "#4ade80", letterSpacing: ".1em", fontWeight: 700, textTransform: "uppercase" }}>Play · Win · Give</span>
           </div>
-          <span style={{ fontWeight: 700, fontSize: "1rem", letterSpacing: "-.01em" }}>Golf Charity</span>
         </Link>
 
         {/* Desktop links */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1.75rem" }} className="desktop-nav">
+        <div className="gc-desktop-links" style={{ display: "flex", alignItems: "center", gap: "1.55rem" }}>
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               className={`gc-nav-link${isActive(link.href) ? " active" : ""}`}
             >
-              <span style={{ fontSize: ".8rem" }}>{link.icon}</span>
+              <span style={{ fontSize: ".76rem" }}>{link.icon}</span>
               {link.label}
             </Link>
           ))}
@@ -210,28 +250,9 @@ export default function Navbar() {
           )}
 
           {session ? (
-            <button
-              onClick={handleSignOut}
-              style={{
-                background: "rgba(255,255,255,.05)",
-                border: "1px solid rgba(255,255,255,.1)",
-                color: "#94a3b8",
-                fontSize: ".82rem",
-                padding: ".45rem 1rem",
-                borderRadius: 8,
-                cursor: "pointer",
-                transition: "all .2s",
-                fontFamily: "inherit",
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#f1f5f9"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,.2)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#94a3b8"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,.1)"; }}
-            >
-              Sign out
-            </button>
+            <button className="signout-btn" onClick={handleSignOut}>Sign out</button>
           ) : (
-            <Link href="/auth" className="nav-cta">
-              Get Started →
-            </Link>
+            <Link href="/auth" className="nav-cta">Get Started →</Link>
           )}
         </div>
 
@@ -239,29 +260,29 @@ export default function Navbar() {
         <button
           className={`hamburger${menuOpen ? " open" : ""}`}
           onClick={() => setMenuOpen(!menuOpen)}
-          style={{ display: "none", flexDirection: "column", gap: 4, background: "none", border: "none", cursor: "pointer", padding: ".25rem" }}
           aria-label="Toggle menu"
         >
           <span /><span /><span />
         </button>
 
-        {/* Mobile menu */}
+        {/* Mobile dropdown */}
         {menuOpen && (
           <div
             ref={menuRef}
             className="mobile-menu"
             style={{
-              position: "absolute",
-              top: "100%",
+              position: "fixed",
+              top: 66,
               left: 0,
               right: 0,
-              background: "rgba(8,12,20,.98)",
-              borderBottom: "1px solid rgba(255,255,255,.08)",
-              padding: "1rem 2rem 1.5rem",
+              background: "rgba(4,7,15,.98)",
+              borderBottom: "1px solid rgba(74,222,128,.1)",
+              padding: "1rem 1.5rem 1.6rem",
               display: "flex",
               flexDirection: "column",
-              gap: ".75rem",
-              backdropFilter: "blur(20px)",
+              gap: ".5rem",
+              backdropFilter: "blur(30px)",
+              boxShadow: "0 24px 60px rgba(0,0,0,.65)",
             }}
           >
             {links.map((link) => (
@@ -270,21 +291,19 @@ export default function Navbar() {
                 href={link.href}
                 className={`gc-nav-link${isActive(link.href) ? " active" : ""}`}
                 onClick={() => setMenuOpen(false)}
-                style={{ fontSize: ".9rem", padding: ".5rem 0" }}
+                style={{ fontSize: ".92rem", padding: ".65rem 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}
               >
-                <span>{link.icon}</span> {link.label}
+                <span style={{ fontSize: ".88rem" }}>{link.icon}</span> {link.label}
               </Link>
             ))}
             {isAdmin && (
-              <Link href="/admin" className="admin-badge" style={{ alignSelf: "flex-start" }} onClick={() => setMenuOpen(false)}>
+              <Link href="/admin" className="admin-badge" style={{ alignSelf: "flex-start", marginTop: ".35rem" }} onClick={() => setMenuOpen(false)}>
                 🔐 Admin Panel
               </Link>
             )}
-            <div style={{ height: 1, background: "rgba(255,255,255,.06)", margin: ".25rem 0" }} />
+            <div style={{ height: 1, background: "rgba(255,255,255,.06)", margin: ".5rem 0" }} />
             {session ? (
-              <button onClick={handleSignOut} style={{ background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", color: "#94a3b8", fontSize: ".85rem", padding: ".6rem 1rem", borderRadius: 8, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
-                Sign out
-              </button>
+              <button className="signout-btn" onClick={handleSignOut} style={{ textAlign: "left" }}>Sign out</button>
             ) : (
               <Link href="/auth" className="nav-cta" style={{ alignSelf: "flex-start" }} onClick={() => setMenuOpen(false)}>
                 Get Started →
@@ -293,14 +312,6 @@ export default function Navbar() {
           </div>
         )}
       </nav>
-
-      {/* Mobile responsive styles */}
-      <style>{`
-        @media (max-width: 768px) {
-          .desktop-nav { display: none !important; }
-          .hamburger { display: flex !important; }
-        }
-      `}</style>
     </>
   );
 }

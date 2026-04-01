@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { DM_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
+import Navbar from "@/components/Navbar";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600", "700", "800"],
   display: "swap",
 });
 
@@ -39,9 +40,13 @@ export default function RootLayout({
       className={`${dmSans.variable} ${playfair.variable} h-full antialiased`}
     >
       <body className={`${dmSans.className} min-h-full flex flex-col bg-[#080c14] text-slate-100`}>
-        {/* Global grain texture — sits above bg, below all content */}
+        {/* Global grain texture */}
         <div className="grain" aria-hidden="true" />
-        {children}
+        {/* Global Navbar — appears on every page */}
+        <Navbar />
+        <main style={{ flex: 1 }}>
+          {children}
+        </main>
       </body>
     </html>
   );
