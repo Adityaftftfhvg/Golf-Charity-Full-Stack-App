@@ -54,11 +54,18 @@ export default function LeaderboardPage() {
   const { ref: podiumRef, inView: podiumIn } = useInView(0.08);
 
   useEffect(() => {
-    supabase.rpc("get_leaderboard").then(({ data, error }) => {
-      if (!error && data && data.length > 0) setLeaders(data);
-      else { setLeaders(DEMO_LEADERS); setUsingDemo(true); }
-      setLoading(false);
-    }).catch(() => { setLeaders(DEMO_LEADERS); setUsingDemo(true); setLoading(false); });
+const fetchLeaderboard = async () => {
+  try {
+    const { data, error } = await supabase.rpc("get_leaderboard");
+    if (!error && data && data.length > 0) setLeaders(data);
+    else { setLeaders(DEMO_LEADERS); setUsingDemo(true); }
+  } catch {
+    setLeaders(DEMO_LEADERS); setUsingDemo(true);
+  } finally {
+    setLoading(false);
+  }
+};
+fetchLeaderboard();
   }, []);
 
   const top3 = leaders.slice(0,3);
