@@ -46,25 +46,26 @@ export default function CharitiesPage() {
       d: 4 + Math.random() * 8,
     })));
 
-    supabase
-      .from("charities")
-      .select("id,name,description,image_url,is_featured")
-      .order("is_featured", { ascending: false })
-      .order("name")
-      .then(({ data, error }) => {
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("charities")
+          .select("id,name,description,image_url,is_featured")
+          .order("is_featured", { ascending: false })
+          .order("name");
         if (!error && data && data.length > 0) {
           setCharities(data);
         } else {
           setCharities(DEMO_CHARITIES);
           setUsingDemo(true);
         }
-        setLoading(false);
-      })
-      .catch(() => {
+      } catch {
         setCharities(DEMO_CHARITIES);
         setUsingDemo(true);
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   const filtered = charities.filter(c =>
