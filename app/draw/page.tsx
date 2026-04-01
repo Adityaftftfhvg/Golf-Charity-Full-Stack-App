@@ -109,11 +109,12 @@ export default function DrawPage() {
           setPastDraws(PAST_DRAWS);
           setUsingDemo(true);
         }
-      } catch {
-        setCurrentDraw(DEMO_DRAW);
-        setPastDraws(PAST_DRAWS);
-        setUsingDemo(true);
-      } finally {
+     } catch (err) {
+  console.log("Draw catch:", err);
+  setCurrentDraw(DEMO_DRAW);
+  setPastDraws(PAST_DRAWS);
+  setUsingDemo(true);
+} finally {
         setLoading(false);
       }
     };

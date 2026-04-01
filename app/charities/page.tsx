@@ -53,16 +53,18 @@ export default function CharitiesPage() {
           .select("id,name,description,image_url,is_featured")
           .order("is_featured", { ascending: false })
           .order("name");
-        if (!error && data && data.length > 0) {
-          setCharities(data);
-        } else {
-          setCharities(DEMO_CHARITIES);
-          setUsingDemo(true);
-        }
-      } catch {
-        setCharities(DEMO_CHARITIES);
-        setUsingDemo(true);
-      } finally {
+      if (!error && data && data.length > 0) {
+  setCharities(data);
+} else {
+  console.log("Supabase error or empty:", error, data);
+  setCharities(DEMO_CHARITIES);
+  setUsingDemo(true);
+}
+    } catch (err) {
+  console.log("Supabase catch:", err);
+  setCharities(DEMO_CHARITIES);
+  setUsingDemo(true);
+} finally {
         setLoading(false);
       }
     })();
