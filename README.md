@@ -111,7 +111,7 @@ Smooth animations & micro-interactions
 ✅ Dashboard functionality
 ⚙️ Setup Instructions
 # Clone the repo
-git clone https://github.com/your-username/Golf-Charity-Full-Stack-App.git
+git clone https://github.com/Adityaftftfhvg/Golf-Charity-Full-Stack-App.git
 
 # Navigate to project
 cd Golf-Charity-Full-Stack-App
