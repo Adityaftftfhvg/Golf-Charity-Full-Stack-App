@@ -1,36 +1,133 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+🏌️ Golf Charity Full Stack App
 
-## Getting Started
+A modern subscription-based golf platform that blends performance tracking, monthly rewards, and charitable giving into one seamless experience.
 
-First, run the development server:
+Built as part of a full-stack development challenge inspired by a real-world Product Requirements Document (PRD), this project demonstrates scalable architecture, clean UI/UX, and complete end-to-end functionality.
 
-```bash
+🚀 Live Demo
+
+http://golf-charity-full-stack-app-two.vercel.app/
+
+📌 Project Overview
+
+This platform allows users to:
+
+Subscribe to monthly/yearly plans
+Enter and track their golf scores
+Participate in monthly prize draws
+Contribute to charities of their choice
+
+The goal is to create an emotionally engaging experience, focusing more on impact and rewards rather than traditional golf aesthetics .
+
+✨ Core Features
+🔐 Authentication & User Roles
+Secure login/signup system
+Role-based access:
+Public Users
+Subscribers
+Admin
+💳 Subscription System
+Monthly & yearly plans
+Payment integration (Stripe or equivalent)
+Subscription lifecycle handling:
+Active / Expired / Renewal
+⛳ Score Management
+Users can enter their last 5 golf scores
+Automatic replacement of oldest score
+Scores displayed in reverse chronological order
+🎯 Monthly Draw System
+Prize categories:
+5-match (Jackpot)
+4-match
+3-match
+Draw types:
+Random
+Algorithm-based
+Jackpot rollover supported
+💰 Prize Pool Logic
+Subscription revenue distributed:
+40% → Jackpot
+35% → 4-match winners
+25% → 3-match winners
+Equal distribution among winners
+❤️ Charity Integration
+Users select a charity during signup
+Minimum 10% contribution
+Option to increase donation %
+Charity listing & profiles
+🧾 Winner Verification System
+Proof upload by winners
+Admin approval/rejection
+Payment tracking (Pending → Paid)
+📊 User Dashboard
+Subscription status
+Score management
+Charity contribution
+Draw participation
+Winnings overview
+🛠️ Admin Dashboard
+User & subscription management
+Draw configuration & execution
+Charity management
+Winner verification
+Analytics & reports
+🧑‍💻 Tech Stack
+
+Frontend
+
+Next.js
+React
+Tailwind CSS
+
+Backend
+
+Node.js / API routes
+Supabase / Firebase (DB & Auth)
+
+Other Tools
+
+Phonepe (Payments)
+Vercel (Deployment)
+🏗️ System Design Highlights
+Scalable architecture for multi-country expansion
+Modular codebase for future mobile app support
+Secure authentication (JWT / session-based)
+Optimized performance & responsive design
+📱 UI/UX Philosophy
+Clean, modern, and emotion-driven design
+Avoids traditional golf visuals
+Focus on:
+Charity impact
+Engagement
+Simplicity
+Smooth animations & micro-interactions
+🧪 Testing Checklist
+✅ User authentication
+✅ Subscription flow
+✅ Score logic (5-score rolling)
+✅ Draw system
+✅ Charity contribution
+✅ Winner verification
+✅ Dashboard functionality
+⚙️ Setup Instructions
+# Clone the repo
+git clone https://github.com/your-username/Golf-Charity-Full-Stack-App.git
+
+# Navigate to project
+cd Golf-Charity-Full-Stack-App
+
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+📈 Future Enhancements
+Mobile app version
+AI-based draw optimization
+Team / corporate subscriptions
+Advanced analytics dashboard
+Campaign & fundraising modules
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+🙌 Author
+Aditya Pathak
